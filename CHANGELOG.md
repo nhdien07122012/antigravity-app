@@ -4,6 +4,26 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 14 - 2026-11-16
+- **Commit:** `859f981`
+- **Mục tiêu thay đổi tóm tắt:** Tinh chỉnh hạ thấp vị trí thanh Floating Dock sát viền dưới màn hình và chuyển đổi sang phong cách **Liquid Glass Dynamic Island** với hiệu ứng kính mờ obsidian đa lớp, đường cong con nhộng liên tục (`cornerCurve = .continuous`), viền phản quang kim loại và tab dự án dạng viên thuốc bo tròn siêu êm ái.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Hạ thấp Floating Dock xuống sát cạnh dưới màn hình (`safeAreaLayoutGuide.bottomAnchor, constant: 0`), tối ưu hoá không gian hiển thị nội dung Google Antigravity Remote.
+    - Cấu hình hình dáng Dynamic Island dạng viên thuốc chuẩn iOS: chiều cao 44pt, `layer.cornerRadius = 22`, kích hoạt đường cong liên tục `layer.cornerCurve = .continuous`.
+    - Áp dụng hiệu ứng Liquid Glass Obsidian: `UIBlurEffect(style: .systemUltraThinMaterialDark)` kết hợp lớp phủ `rgba(10, 10, 15, 0.75)`, viền phản quang kính `borderWidth = 0.75` với màu `rgba(255, 255, 255, 0.18)`, bóng đổ mờ lan toả `shadowRadius = 18`.
+    - Tab dự án: chuyển thành các viên thuốc bo tròn con nhộng `cornerRadius = 14`, tab active phát sáng màu Electric Blue rực rỡ, tab inactive sử dụng chất liệu kính khói mờ tinh tế.
+    - Nút thao tác nhanh (+, ↻, ⤢): bo tròn mềm mại và đồng bộ phong cách kính mờ.
+  - `src/components/FloatingDock.tsx`: Đồng bộ 100% phong cách Liquid Glass Dynamic Island sang phiên bản Web: `rounded-full`, vị trí `bottom-[calc(4px+env(safe-area-inset-bottom,0px))]`, hiệu ứng kính mờ `backdrop-blur-2xl bg-[#0a0a0f]/80` viền `border-white/20`.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 14` (`v1.0.0 (Build 14)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 14`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 859f981 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 13 - 2026-11-16
 - **Commit:** `46359a7`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi biên dịch Swift trên CI (`UIButton.Configuration` và `JSONDecoder.decode from:`), tương thích 100% với toàn bộ phiên bản iOS và Xcode 16 trên macOS Sequoia; vận hành trơn tru Native Multi-Instance `WKWebView` Engine không còn lỗi Google 403 Forbidden và căn chỉnh hoàn hảo SafeAreaLayoutGuide.

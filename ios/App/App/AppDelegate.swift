@@ -113,7 +113,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     private var webViews: [String: WKWebView] = [:]
 
     private let containerView = UIView()
-    private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
+    private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
     private let dockScrollView = UIScrollView()
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
@@ -142,21 +142,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
 
-        // 2. Floating Dock Capsule
+        // 2. Floating Dock Capsule (Liquid Glass Dynamic Island Style)
         dockView.translatesAutoresizingMaskIntoConstraints = false
         dockView.layer.cornerRadius = 22
+        dockView.layer.cornerCurve = .continuous
         dockView.layer.masksToBounds = false
         dockView.layer.shadowColor = UIColor.black.cgColor
-        dockView.layer.shadowOpacity = 0.22
-        dockView.layer.shadowRadius = 14
+        dockView.layer.shadowOpacity = 0.5
+        dockView.layer.shadowRadius = 18
         dockView.layer.shadowOffset = CGSize(width: 0, height: 4)
-        dockView.layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
-        dockView.layer.borderWidth = 0.5
+        dockView.layer.borderColor = UIColor(white: 1.0, alpha: 0.18).cgColor
+        dockView.layer.borderWidth = 0.75
         view.addSubview(dockView)
 
         let dockContentView = dockView.contentView
         dockContentView.layer.cornerRadius = 22
+        dockContentView.layer.cornerCurve = .continuous
         dockContentView.clipsToBounds = true
+        dockContentView.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 0.75)
 
         // 3. Scrollable Project Tabs
         dockScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -179,23 +182,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         // Add (+) Button
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
-        addButton.tintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
-        addButton.backgroundColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 0.12)
-        addButton.layer.cornerRadius = 15
+        addButton.tintColor = UIColor(red: 0.4, green: 0.75, blue: 1.0, alpha: 1.0)
+        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 0.25)
+        addButton.layer.cornerRadius = 14
+        addButton.layer.cornerCurve = .continuous
         addButton.addTarget(self, action: #selector(handleAddWorkspace), for: .touchUpInside)
         actionStackView.addArrangedSubview(addButton)
 
         // Reload (↻) Button
         reloadButton.translatesAutoresizingMaskIntoConstraints = false
         reloadButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
-        reloadButton.tintColor = .secondaryLabel
+        reloadButton.tintColor = UIColor(white: 0.85, alpha: 1.0)
         reloadButton.addTarget(self, action: #selector(handleReloadActiveTab), for: .touchUpInside)
         actionStackView.addArrangedSubview(reloadButton)
 
         // Fullscreen (⤢) Button
         fullscreenButton.translatesAutoresizingMaskIntoConstraints = false
         fullscreenButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right"), for: .normal)
-        fullscreenButton.tintColor = .secondaryLabel
+        fullscreenButton.tintColor = UIColor(white: 0.85, alpha: 1.0)
         fullscreenButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
         actionStackView.addArrangedSubview(fullscreenButton)
 
@@ -203,12 +207,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         restoreButton.translatesAutoresizingMaskIntoConstraints = false
         restoreButton.setImage(UIImage(systemName: "arrow.down.right.and.arrow.up.left"), for: .normal)
         restoreButton.tintColor = .white
-        restoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.75)
-        restoreButton.layer.cornerRadius = 20
+        restoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.8)
+        restoreButton.layer.cornerRadius = 18
+        restoreButton.layer.cornerCurve = .continuous
         restoreButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
         restoreButton.layer.borderWidth = 0.5
         restoreButton.layer.shadowColor = UIColor.black.cgColor
-        restoreButton.layer.shadowOpacity = 0.3
+        restoreButton.layer.shadowOpacity = 0.4
         restoreButton.layer.shadowRadius = 8
         restoreButton.alpha = 0
         restoreButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
@@ -222,12 +227,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Floating dock pinned safely above home indicator
+            // Floating dock pinned closer to bottom (Dynamic Island look)
             dockView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            dockView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
-            dockView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
-            dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            dockView.heightAnchor.constraint(equalToConstant: 48),
+            dockView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 14),
+            dockView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -14),
+            dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
+            dockView.heightAnchor.constraint(equalToConstant: 44),
 
             // Dock scroll view
             dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 8),
@@ -246,18 +251,18 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -8),
             actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
 
-            addButton.widthAnchor.constraint(equalToConstant: 30),
-            addButton.heightAnchor.constraint(equalToConstant: 30),
-            reloadButton.widthAnchor.constraint(equalToConstant: 30),
-            reloadButton.heightAnchor.constraint(equalToConstant: 30),
-            fullscreenButton.widthAnchor.constraint(equalToConstant: 30),
-            fullscreenButton.heightAnchor.constraint(equalToConstant: 30),
+            addButton.widthAnchor.constraint(equalToConstant: 28),
+            addButton.heightAnchor.constraint(equalToConstant: 28),
+            reloadButton.widthAnchor.constraint(equalToConstant: 28),
+            reloadButton.heightAnchor.constraint(equalToConstant: 28),
+            fullscreenButton.widthAnchor.constraint(equalToConstant: 28),
+            fullscreenButton.heightAnchor.constraint(equalToConstant: 28),
 
             // Restore button
             restoreButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             restoreButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            restoreButton.widthAnchor.constraint(equalToConstant: 40),
-            restoreButton.heightAnchor.constraint(equalToConstant: 40)
+            restoreButton.widthAnchor.constraint(equalToConstant: 36),
+            restoreButton.heightAnchor.constraint(equalToConstant: 36)
         ])
     }
 
@@ -349,21 +354,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             button.translatesAutoresizingMaskIntoConstraints = false
             button.tag = workspaces.firstIndex(where: { $0.id == ws.id }) ?? 0
 
-            // Universal UIKit title & styling
+            // Liquid Glass Capsule Tab
             button.setTitle(ws.name, for: .normal)
-            button.setTitleColor(isActive ? .white : .label, for: .normal)
+            button.setTitleColor(isActive ? .white : UIColor(white: 0.82, alpha: 1.0), for: .normal)
             button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: isActive ? .bold : .medium)
-            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+            button.contentEdgeInsets = UIEdgeInsets(top: 5, left: 11, bottom: 5, right: 11)
 
-            button.backgroundColor = isActive ? UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0) : UIColor.secondarySystemFill
+            button.backgroundColor = isActive ? UIColor(red: 0.12, green: 0.45, blue: 1.0, alpha: 0.95) : UIColor(white: 1.0, alpha: 0.10)
             button.layer.cornerRadius = 14
+            button.layer.cornerCurve = .continuous
             button.clipsToBounds = true
 
             if isActive {
-                button.layer.shadowColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 0.4).cgColor
-                button.layer.shadowOpacity = 0.5
-                button.layer.shadowRadius = 6
+                button.layer.shadowColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 0.55).cgColor
+                button.layer.shadowOpacity = 0.6
+                button.layer.shadowRadius = 8
                 button.layer.shadowOffset = CGSize(width: 0, height: 2)
+            } else {
+                button.layer.shadowOpacity = 0
             }
 
             button.addTarget(self, action: #selector(handleTabTapped(_:)), for: .touchUpInside)
