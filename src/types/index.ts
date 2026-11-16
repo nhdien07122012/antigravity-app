@@ -44,6 +44,7 @@ export interface Message {
 export interface Session {
   id: string;
   projectId: string;
+  projectName?: string;
   title: string;
   createdAt: string;
   updatedAt: string;

@@ -107,6 +107,16 @@ function antigravityBridgePlugin() {
       server.middlewares.use((req: any, res: any, next: any) => {
         const url = req.url || '';
 
+        // CORS preflight and headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          return res.end();
+        }
+
         // 1. GET /api/server-info
         if (url === '/api/server-info') {
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -317,6 +327,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    cors: true,
   },
   build: {
     outDir: 'dist',

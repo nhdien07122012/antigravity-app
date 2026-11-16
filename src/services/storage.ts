@@ -107,7 +107,35 @@ const DEFAULT_SESSION: Session = {
   ],
 };
 
+export const DEFAULT_SERVER_URL = 'http://192.168.1.4:5173';
+
+export const getServerBaseUrl = async (): Promise<string> => {
+  try {
+    const { value } = await Preferences.get({ key: 'ag_server_url' });
+    if (value && value.trim()) {
+      return value.trim().replace(/\/+$/, '');
+    }
+  } catch {}
+
+  if (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http')) {
+    return window.location.origin;
+  }
+
+  return DEFAULT_SERVER_URL;
+};
+
 export const storage = {
+  async getServerUrl(): Promise<string> {
+    return getServerBaseUrl();
+  },
+
+  async saveServerUrl(url: string): Promise<void> {
+    await Preferences.set({
+      key: 'ag_server_url',
+      value: url.trim().replace(/\/+$/, ''),
+    });
+  },
+
   async getHostConfig(): Promise<HostConfig> {
     try {
       const { value } = await Preferences.get({ key: KEYS.HOST_CONFIG });
@@ -190,7 +218,8 @@ export const storage = {
 
   async fetchServerInfo(): Promise<any> {
     try {
-      const res = await fetch('/api/server-info');
+      const baseUrl = await getServerBaseUrl();
+      const res = await fetch(`${baseUrl}/api/server-info`);
       if (res.ok) return await res.json();
     } catch {}
     return null;
@@ -198,7 +227,8 @@ export const storage = {
 
   async fetchRealProjects(): Promise<Project[]> {
     try {
-      const res = await fetch('/api/real-projects');
+      const baseUrl = await getServerBaseUrl();
+      const res = await fetch(`${baseUrl}/api/real-projects`);
       if (res.ok) {
         const raw = await res.json();
         if (Array.isArray(raw) && raw.length > 0) {
@@ -217,14 +247,16 @@ export const storage = {
 
   async fetchRealServerSessions(projectId?: string): Promise<Session[]> {
     try {
+      const baseUrl = await getServerBaseUrl();
       const query = projectId && projectId !== 'all_projects' ? `?projectId=${encodeURIComponent(projectId)}` : '';
-      const res = await fetch(`/api/real-sessions${query}`);
+      const res = await fetch(`${baseUrl}/api/real-sessions${query}`);
       if (res.ok) {
         const raw = await res.json();
         if (Array.isArray(raw) && raw.length > 0) {
           return raw.map((s: any) => ({
             id: s.id,
-            projectId: s.projectId || 'proj_antigravity_app',
+            projectId: s.projectId || '641f4384-b46d-4f8d-8c4b-1fd3b7554682',
+            projectName: s.projectName || 'antigravity-app',
             title: s.title,
             createdAt: s.createdAt || new Date().toISOString(),
             updatedAt: s.updatedAt || new Date().toISOString(),
@@ -238,7 +270,8 @@ export const storage = {
 
   async sendChatMessage(prompt: string, projectId: string, projectName: string): Promise<any> {
     try {
-      const res = await fetch('/api/chat', {
+      const baseUrl = await getServerBaseUrl();
+      const res = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, projectId, projectName }),
@@ -252,7 +285,8 @@ export const storage = {
 
   async fetchRealTranscript(sessionId: string): Promise<Message[]> {
     try {
-      const res = await fetch(`/api/real-transcript/${sessionId}`);
+      const baseUrl = await getServerBaseUrl();
+      const res = await fetch(`${baseUrl}/api/real-transcript/${sessionId}`);
       if (res.ok) {
         const messages = await res.json();
         if (Array.isArray(messages)) return messages;

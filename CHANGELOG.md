@@ -4,6 +4,27 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 9 - 2026-11-16
+- **Commit:** `aeaa761`
+- **Mục tiêu thay đổi tóm tắt:** Đồng bộ 100% tính năng phân loại hội thoại theo từng Project giữa Mobile (.ipa) và Windows (Web), giải quyết triệt để lỗi mất kết nối host trên native iOS qua bộ cấu hình Server URL động, hỗ trợ phân nhóm Accordion Project Folders, tìm kiếm hội thoại, và cấp phép Apple App Transport Security (ATS).
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `src/services/storage.ts`: Xây dựng hàm `getServerBaseUrl()` tự động chuyển tiếp API call sang máy tính server (`http://192.168.1.4:5173` hoặc Tailscale) khi app chạy trong môi trường Native Capacitor iOS (`capacitor://` / `ionic://`); hỗ trợ lưu và lấy URL server từ Preferences.
+  - `src/components/Sidebar.tsx`: Nâng cấp giao diện hiển thị hội thoại: hỗ trợ xem theo từng dự án hoặc xem toàn bộ gom nhóm trực quan theo từng Folder Dự án (Accordion Grouping) chuẩn Antigravity Windows; thêm thanh tìm kiếm hội thoại thời gian thực; thêm nút đồng bộ dữ liệu tức thì từ host.
+  - `src/components/SettingsModal.tsx`: Tích hợp bảng cấu hình Host Server URL với các nút bấm nhanh 1 chạm (Wi-Fi, Tailscale, Localhost) và công cụ Ping Test đo độ trễ mạng trực tiếp từ điện thoại.
+  - `src/components/Header.tsx`: Bổ sung tương tác chạm trực tiếp vào tên dự án ở giữa header để mở nhanh menu dự án/hội thoại.
+  - `ios/App/App/Info.plist`: Cấp phép `NSAppTransportSecurity` (`NSAllowsArbitraryLoads`, `NSAllowsLocalNetworking`) cho phép app native iOS giao tiếp qua mạng LAN/Wi-Fi với PC host.
+  - `capacitor.config.ts`: Kích hoạt `server.cleartext: true` cho Capacitor WebView.
+  - `vite.config.ts`: Xử lý HTTP OPTIONS preflight request cho toàn bộ API cầu nối; kích hoạt `server.cors: true`.
+  - `src/types/index.ts`: Bổ sung trường `projectName` vào giao diện `Session`.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 9` (`v1.0.0 (Build 9)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 9`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert aeaa761 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 8 - 2026-11-16
 - **Commit:** `4dbfd5b`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục lỗi GitHub Actions `The configuration 'macos-14-arm64-us-x1' is not supported` bằng cách nâng cấp runner lên `macos-15`, tích hợp cấu hình shared scheme `App.xcscheme` chuẩn Xcode cho xcodebuild, và đồng bộ tự động `pod install`.

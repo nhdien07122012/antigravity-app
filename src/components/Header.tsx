@@ -35,9 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center: Active Project & Model Badge */}
-      <div className="flex flex-col items-center cursor-pointer" onClick={onOpenSettings}>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-base text-gray-900 max-w-[170px] truncate">
+      <div className="flex flex-col items-center cursor-pointer group" onClick={onOpenSidebar} title="Bấm để đổi Dự án / Hội thoại">
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-base text-gray-900 max-w-[170px] truncate group-hover:text-blue-600 transition">
             {activeProject ? activeProject.name : 'Antigravity'}
           </span>
           <span className="text-[11px] bg-blue-50 text-blue-700 font-semibold font-mono px-2 py-0.5 rounded-full border border-blue-200">

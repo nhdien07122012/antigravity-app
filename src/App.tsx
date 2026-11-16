@@ -415,6 +415,7 @@ export const App: React.FC = () => {
         onNewSession={handleNewSession}
         onOpenQRScanner={() => setIsQRScannerOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onRefreshData={loadData}
       />
 
       {/* QR Code Scanner & Manual Pairing Modal */}
@@ -433,6 +434,7 @@ export const App: React.FC = () => {
           setHostConfig(cfg);
           await storage.saveHostConfig(cfg);
         }}
+        onReloadServerData={loadData}
       />
 
       {/* Artifact Document / Diagram Viewer Modal */}

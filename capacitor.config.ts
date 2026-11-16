@@ -6,7 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    iosScheme: 'ionic'
+    iosScheme: 'ionic',
+    cleartext: true
   },
   ios: {
     contentInset: 'always',
