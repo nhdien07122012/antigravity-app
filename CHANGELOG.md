@@ -4,6 +4,23 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 7 - 2026-11-16
+- **Commit:** `c65720e`
+- **Mục tiêu thay đổi tóm tắt:** Thiết lập quy trình tự động build file `.ipa` qua GitHub Actions tạo GitHub Release với link tải trực tiếp; bổ sung icon PWA và Web App Manifest cho trải nghiệm native tức thì trên Safari iOS.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `.github/workflows/build-ipa.yml`: Bổ sung quyền ghi (`permissions: contents: write`), tích hợp `softprops/action-gh-release@v2` tự động xuất bản gói `AntigravityMobile.ipa` lên GitHub Release và cấp link tải trực tiếp công khai cho iPhone.
+  - `public/manifest.json`: Tạo file Web App Manifest chuẩn PWA (standalone mode, theme color, icons).
+  - `public/logo.svg`: Tạo biểu tượng logo Antigravity vector sắc nét phục vụ icon app.
+  - `index.html`: Khai báo `apple-touch-icon` và link tới `manifest.json`.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 7` (`v1.0.0 (Build 7)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 7`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert c65720e --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 6 - 2026-11-16
 - **Commit:** `c0c55b2`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để phản hồi tin nhắn giả định (mock canned response), kết nối phản hồi thông minh thời gian thực từ máy chủ (`/api/chat`), hỗ trợ thực thi trực tiếp lệnh terminal qua cú pháp `run <cmd>`, và phân loại tự động danh sách cuộc hội thoại theo từng Project thực tế trên máy tính host.

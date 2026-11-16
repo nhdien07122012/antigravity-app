@@ -1,0 +1,17 @@
+{
+  "name": "Antigravity Remote",
+  "short_name": "Antigravity",
+  "description": "Antigravity Mobile Companion & Remote Control",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
