@@ -4,6 +4,41 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 25 - 2026-11-16
+- **Commit:** `97ef3fd`
+- **GitHub Actions Run:** `pending`
+- **Mục tiêu thay đổi tóm tắt:** Bổ sung nút Back (`◀`) trên thanh Dock và bảng điều khiển cho phép quay lại trang trước 1 chạm hoặc nhấn giữ để xem danh sách lịch sử duyệt trang; Tích hợp hệ thống thông báo tự động (Notification & In-app Toast Banner) khi một hội thoại (Conversation) hoàn thành kết quả phản hồi với rung phản hồi xúc giác (Haptics), âm thanh chuông báo (System Chime), biểu ngữ động nhảy ra từ đỉnh màn hình, và thông báo đẩy cục bộ iOS (UNUserNotificationCenter) ngay cả khi khóa máy hoặc chuyển app.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Thêm `import UserNotifications` và `import AudioToolbox`.
+    - Kế thừa giao thức `UNUserNotificationCenterDelegate`, tự động xin quyền thông báo khi khởi chạy ứng dụng (`application(_:didFinishLaunchingWithOptions:)`), hỗ trợ hiển thị banner và phát chuông ngay cả khi app đang mở ở tiền cảnh (`userNotificationCenter(_:willPresent:...)`).
+    - Bổ sung nút Native Back (`chevron.backward`) vào `actionStackView` của Dock:
+      - Chạm 1 lần (`handleGoBack`): Kích hoạt `activeWebView.goBack()` kèm phản hồi xúc giác rung nhẹ (`UIImpactFeedbackGenerator`).
+      - Nhấn giữ (`handleBackLongPressed`): Mở Action Sheet hiển thị danh sách 6 trang lịch sử gần nhất từ `backForwardList.backList` để nhảy nhanh tới bất kỳ trang nào.
+    - Tiêm kịch bản theo dõi DOM thông minh (`watcherScriptSource`) qua `WKUserScript` vào mọi `WKWebView`:
+      - Liên tục giám sát trạng thái bận (`tasks running`, `thinking`, `generating`, `stopBtn`, `[aria-busy="true"]`).
+      - Tự động nhận diện thời điểm hội thoại hoàn tất phản hồi (từ trạng thái bận chuyển sang rảnh rỗi sau khi xử lý xong ít nhất 2.5 giây) và gửi thông điệp `conversationFinished` về mã Swift native qua `WKScriptMessageHandler`.
+    - Tạo `triggerConversationFinishedNotification(title:)`:
+      - Rung phản hồi thành công (`UINotificationFeedbackGenerator(.success)`).
+      - Phát chuông thông báo hệ thống iOS nhẹ nhàng (`AudioServicesPlaySystemSound(1025)`).
+      - Hiển thị biểu ngữ nổi (`toastBannerView`) bo góc với hiệu ứng lò xo mượt mà ở đỉnh màn hình, tự động ẩn sau 4 giây hoặc chạm để tắt ngay.
+      - Gửi thông báo hệ thống iOS qua `UNUserNotificationCenter` để người dùng không bỏ lỡ kết quả kể cả khi tắt màn hình hoặc đổi ứng dụng khác.
+    - Cập nhật menu Cài Đặt (`handleSettingsTapped`):
+      - Thêm nút `◀️ Quay lại trang trước`.
+      - Thêm công tắc bật/tắt nhận thông báo (`🔔 Thông Báo Hoàn Thành: ĐANG BẬT / 🔕 ĐANG TẮT`), lưu tùy chọn vĩnh viễn vào `UserDefaults`.
+      - Thêm nút `🎉 Thử nghiệm chuông & thông báo ngay` để người dùng kiểm tra âm thanh và biểu ngữ tức thì.
+  - `src/components/FloatingDock.tsx`:
+    - Bổ sung icon `ArrowLeft` từ `lucide-react`.
+    - Thêm nút Back với hàm `handleBack()` tự động chuyển tiếp qua `window.webkit.messageHandlers.antigravityNative` hoặc `window.history.back()`.
+  - `src/version.ts`: Nâng cấp lên `Build 25` (`v1.0.0 (Build 25)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 25`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 97ef3fd --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 24 - 2026-11-16
 - **Commit:** `e3220e3`
 - **GitHub Actions Run:** `#43871765495` (success)

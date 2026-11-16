@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ArrowLeft,
   Plus,
   Layers,
   Maximize2,
@@ -56,6 +57,18 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     setZoomLevel(100);
     document.body.style.zoom = '100%';
     setShowZoomMenu(false);
+  };
+
+  const handleBack = () => {
+    if ((window as any).webkit?.messageHandlers?.antigravityNative) {
+      try {
+        (window as any).webkit.messageHandlers.antigravityNative.postMessage('goBack');
+      } catch (e) {
+        window.history.back();
+      }
+    } else {
+      window.history.back();
+    }
   };
 
   if (isFullscreen) {
@@ -164,8 +177,17 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
           })}
         </div>
 
-        {/* Right Actions: Add Project, Zoom, Fullscreen, Collapse */}
+        {/* Right Actions: Back, Add Project, Zoom, Fullscreen, Collapse */}
         <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-gray-300/60 dark:border-white/15">
+          {/* Back Button */}
+          <button
+            onClick={handleBack}
+            title="Quay lại trang trước"
+            className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
+
           {/* Add Project via QR */}
           <button
             onClick={onOpenScanner}

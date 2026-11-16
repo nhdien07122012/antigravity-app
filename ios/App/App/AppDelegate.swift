@@ -2,6 +2,8 @@ import UIKit
 import WebKit
 import AVFoundation
 import QuickLook
+import UserNotifications
+import AudioToolbox
 
 // MARK: - Data Models
 struct RemoteWorkspace: Codable {
@@ -101,16 +103,32 @@ class WorkspaceStore {
 
 // MARK: - App Delegate
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Configure UNUserNotificationCenter
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("[Notification] Auth error: \(error.localizedDescription)")
+            }
+        }
+
         let win = UIWindow(frame: UIScreen.main.bounds)
         win.rootViewController = MainViewController()
         win.makeKeyAndVisible()
         self.window = win
         return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .sound, .badge])
+        } else {
+            completionHandler([.alert, .sound, .badge])
+        }
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
@@ -134,12 +152,20 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private let dockScrollView = UIScrollView()
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
+    private let backButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
     private let ipaButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
     private let fullscreenButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
+
+    // Completion Toast Banner
+    private let toastBannerView = UIView()
+    private let toastIconView = UIImageView()
+    private let toastTitleLabel = UILabel()
+    private let toastMessageLabel = UILabel()
+    private var toastHideTimer: Timer?
 
     private var isFullscreen = false
     private var currentZoom: CGFloat = 1.0
@@ -203,6 +229,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         dockContainerView.layer.shadowOpacity = isDark ? 0.32 : 0.15
 
         let tintColor: UIColor = isDark ? .white : .label
+        backButton.tintColor = tintColor.withAlphaComponent(0.85)
         addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
         addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
         reloadButton.tintColor = tintColor.withAlphaComponent(0.85)
@@ -258,12 +285,17 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         actionStackView.alignment = .center
         dockContentView.addSubview(actionStackView)
 
+        setupActionButton(backButton, iconName: "chevron.backward", action: #selector(handleGoBack))
+        let longPressBack = UILongPressGestureRecognizer(target: self, action: #selector(handleBackLongPressed(_:)))
+        backButton.addGestureRecognizer(longPressBack)
+
         setupActionButton(addButton, iconName: "plus", action: #selector(handleAddWorkspace))
         setupActionButton(reloadButton, iconName: "arrow.clockwise", action: #selector(handleReloadActiveTab))
         setupActionButton(ipaButton, iconName: "arrow.down.circle", action: #selector(handleIpaManagerTapped))
         setupActionButton(settingsButton, iconName: "gearshape", action: #selector(handleSettingsTapped))
         setupActionButton(fullscreenButton, iconName: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullscreen))
 
+        actionStackView.addArrangedSubview(backButton)
         actionStackView.addArrangedSubview(addButton)
         actionStackView.addArrangedSubview(reloadButton)
         actionStackView.addArrangedSubview(ipaButton)
@@ -285,6 +317,41 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         restoreButton.alpha = 0
         restoreButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
         view.addSubview(restoreButton)
+
+        // 7. Toast Banner View (Conversation Finished Notification)
+        toastBannerView.translatesAutoresizingMaskIntoConstraints = false
+        toastBannerView.backgroundColor = UIColor(red: 0.08, green: 0.12, blue: 0.16, alpha: 0.95)
+        toastBannerView.layer.cornerRadius = 24
+        toastBannerView.layer.cornerCurve = .continuous
+        toastBannerView.layer.borderColor = UIColor(red: 0.20, green: 0.78, blue: 0.45, alpha: 0.5).cgColor
+        toastBannerView.layer.borderWidth = 1
+        toastBannerView.layer.shadowColor = UIColor.black.cgColor
+        toastBannerView.layer.shadowOpacity = 0.35
+        toastBannerView.layer.shadowRadius = 12
+        toastBannerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        toastBannerView.alpha = 0
+        toastBannerView.isUserInteractionEnabled = true
+        let toastTap = UITapGestureRecognizer(target: self, action: #selector(handleToastTapped))
+        toastBannerView.addGestureRecognizer(toastTap)
+        view.addSubview(toastBannerView)
+
+        toastIconView.translatesAutoresizingMaskIntoConstraints = false
+        toastIconView.image = UIImage(systemName: "checkmark.circle.fill")
+        toastIconView.tintColor = UIColor(red: 0.20, green: 0.78, blue: 0.45, alpha: 1.0)
+        toastIconView.contentMode = .scaleAspectFit
+        toastBannerView.addSubview(toastIconView)
+
+        toastTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        toastTitleLabel.text = "Hội Thoại Hoàn Thành! 🎉"
+        toastTitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .bold)
+        toastTitleLabel.textColor = .white
+        toastBannerView.addSubview(toastTitleLabel)
+
+        toastMessageLabel.translatesAutoresizingMaskIntoConstraints = false
+        toastMessageLabel.text = "Phản hồi và tác vụ đã được xử lý xong."
+        toastMessageLabel.font = UIFont.systemFont(ofSize: 11, weight: .regular)
+        toastMessageLabel.textColor = UIColor.white.withAlphaComponent(0.85)
+        toastBannerView.addSubview(toastMessageLabel)
 
         // Constraints - Build 13 layout
         NSLayoutConstraint.activate([
@@ -324,6 +391,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -8),
             actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
 
+            backButton.widthAnchor.constraint(equalToConstant: 30),
+            backButton.heightAnchor.constraint(equalToConstant: 30),
             addButton.widthAnchor.constraint(equalToConstant: 30),
             addButton.heightAnchor.constraint(equalToConstant: 30),
             reloadButton.widthAnchor.constraint(equalToConstant: 30),
@@ -339,7 +408,27 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             restoreButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             restoreButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             restoreButton.widthAnchor.constraint(equalToConstant: 40),
-            restoreButton.heightAnchor.constraint(equalToConstant: 40)
+            restoreButton.heightAnchor.constraint(equalToConstant: 40),
+
+            // Toast banner constraints
+            toastBannerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            toastBannerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toastBannerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16),
+            toastBannerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -16),
+            toastBannerView.heightAnchor.constraint(equalToConstant: 48),
+
+            toastIconView.leadingAnchor.constraint(equalTo: toastBannerView.leadingAnchor, constant: 14),
+            toastIconView.centerYAnchor.constraint(equalTo: toastBannerView.centerYAnchor),
+            toastIconView.widthAnchor.constraint(equalToConstant: 24),
+            toastIconView.heightAnchor.constraint(equalToConstant: 24),
+
+            toastTitleLabel.topAnchor.constraint(equalTo: toastBannerView.topAnchor, constant: 8),
+            toastTitleLabel.leadingAnchor.constraint(equalTo: toastIconView.trailingAnchor, constant: 10),
+            toastTitleLabel.trailingAnchor.constraint(equalTo: toastBannerView.trailingAnchor, constant: -14),
+
+            toastMessageLabel.topAnchor.constraint(equalTo: toastTitleLabel.bottomAnchor, constant: 2),
+            toastMessageLabel.leadingAnchor.constraint(equalTo: toastIconView.trailingAnchor, constant: 10),
+            toastMessageLabel.trailingAnchor.constraint(equalTo: toastBannerView.trailingAnchor, constant: -14)
         ])
     }
 
@@ -379,6 +468,59 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         config.mediaTypesRequiringUserActionForPlayback = []
         config.websiteDataStore = WKWebsiteDataStore.default()
         config.userContentController.add(self, name: "antigravityNative")
+
+        let watcherScriptSource = """
+        (function() {
+            if (window.__agCompletionWatcherActive) return;
+            window.__agCompletionWatcherActive = true;
+
+            let isBusy = false;
+            let busyStartTime = 0;
+            let lastTitle = '';
+
+            function detectBusyState() {
+                const text = document.body ? document.body.innerText : '';
+                const hasRunningText = /\\b\\d+\\s+tasks?\\s+running\\b/i.test(text) ||
+                                       /\\b(thinking|generating response|executing|working\\.\\.\\.)\\b/i.test(text);
+
+                const stopBtn = document.querySelector('button[aria-label*="Stop" i], button[title*="Stop" i], button[aria-label*="Dừng" i], button[data-testid*="stop" i]');
+                const hasBusyAttr = !!document.querySelector('[aria-busy="true"], [role="progressbar"]');
+
+                return hasRunningText || !!stopBtn || hasBusyAttr;
+            }
+
+            function check() {
+                const currentlyBusy = detectBusyState();
+
+                if (currentlyBusy) {
+                    if (!isBusy) {
+                        isBusy = true;
+                        busyStartTime = Date.now();
+                        const h = document.querySelector('h1, h2, [role="heading"], .conversation-title');
+                        lastTitle = h ? h.textContent.trim() : document.title;
+                    }
+                } else {
+                    if (isBusy) {
+                        const elapsed = Date.now() - busyStartTime;
+                        isBusy = false;
+                        if (elapsed >= 2500) {
+                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.antigravityNative) {
+                                window.webkit.messageHandlers.antigravityNative.postMessage({
+                                    action: 'conversationFinished',
+                                    title: lastTitle || document.title || 'Hội thoại Antigravity'
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            setInterval(check, 800);
+        })();
+        """
+
+        let watcherUserScript = WKUserScript(source: watcherScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        config.userContentController.addUserScript(watcherUserScript)
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -485,6 +627,95 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     // MARK: - Actions
+    // MARK: - Navigation History (Back Button)
+    @objc private func handleGoBack() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if let activeWv = webViews[activeWorkspaceId] {
+            if activeWv.canGoBack {
+                activeWv.goBack()
+            } else {
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            }
+        }
+    }
+
+    @objc private func handleBackLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, let activeWv = webViews[activeWorkspaceId] else { return }
+        let backList = activeWv.backForwardList.backList
+        guard !backList.isEmpty else { return }
+
+        let sheet = UIAlertController(title: "Lịch Sử Trang Trước", message: "Chạm để quay lại trang mong muốn:", preferredStyle: .actionSheet)
+        for item in backList.suffix(6).reversed() {
+            let title = (item.title?.isEmpty == false) ? item.title! : item.url.absoluteString
+            sheet.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
+                activeWv.go(to: item)
+            }))
+        }
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = backButton
+            popover.sourceRect = backButton.bounds
+        }
+        present(sheet, animated: true)
+    }
+
+    // MARK: - Conversation Completion Notification
+    private func triggerConversationFinishedNotification(title: String) {
+        let isEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
+        guard isEnabled else { return }
+
+        // 1. Success Haptics
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        // 2. Play subtle notification chime
+        AudioServicesPlaySystemSound(1025)
+
+        // 3. Show Animated In-App Banner
+        showToastBanner(
+            title: "Hội Thoại Hoàn Thành! 🎉",
+            message: title.isEmpty ? "Phản hồi và tác vụ đã được xử lý xong." : title
+        )
+
+        // 4. Fire Local Notification (for Background/Lockscreen or Banner)
+        let content = UNMutableNotificationContent()
+        content.title = "Antigravity Mobile 🎉"
+        content.body = title.isEmpty ? "Hội thoại đã có kết quả! Chạm để xem chi tiết." : "Đã hoàn thành: \(title)"
+        content.sound = .default
+        content.badge = 1
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    }
+
+    private func showToastBanner(title: String, message: String) {
+        toastTitleLabel.text = title
+        toastMessageLabel.text = message
+
+        toastHideTimer?.invalidate()
+        toastBannerView.transform = CGAffineTransform(translationX: 0, y: -50)
+
+        UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.72, initialSpringVelocity: 0.6, options: .curveEaseOut) {
+            self.toastBannerView.alpha = 1
+            self.toastBannerView.transform = .identity
+        }
+
+        toastHideTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            UIView.animate(withDuration: 0.35, delay: 0, options: .curveEaseIn) {
+                self.toastBannerView.alpha = 0
+                self.toastBannerView.transform = CGAffineTransform(translationX: 0, y: -50)
+            }
+        }
+    }
+
+    @objc private func handleToastTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        toastHideTimer?.invalidate()
+        UIView.animate(withDuration: 0.25) {
+            self.toastBannerView.alpha = 0
+            self.toastBannerView.transform = CGAffineTransform(translationX: 0, y: -50)
+        }
+    }
     @objc private func handleTabTapped(_ sender: UIButton) {
         let index = sender.tag
         if index < workspaces.count {
@@ -611,6 +842,21 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 self.showRenameDialog(for: active)
             }))
         }
+
+        sheet.addAction(UIAlertAction(title: "◀️ Quay lại trang trước", style: .default, handler: { _ in
+            self.handleGoBack()
+        }))
+
+        let notifEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
+        sheet.addAction(UIAlertAction(title: notifEnabled ? "🔔 Thông Báo Hoàn Thành: ĐANG BẬT" : "🔕 Thông Báo Hoàn Thành: ĐANG TẮT", style: .default, handler: { _ in
+            let newState = !notifEnabled
+            UserDefaults.standard.set(newState, forKey: "ag_notifications_enabled")
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🎉 Thử nghiệm chuông & thông báo ngay", style: .default, handler: { _ in
+            self.triggerConversationFinishedNotification(title: "Thử nghiệm: Xây Dựng Ứng Dụng Antigravity Mobile")
+        }))
 
         sheet.addAction(UIAlertAction(title: "🔑 Đăng nhập tài khoản Google", style: .default, handler: { _ in
             self.navigateToGoogleLogin()
@@ -790,10 +1036,19 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     let filename = body["filename"] as? String
                     DownloadManager.shared.startDownload(url: url, customFilename: filename)
                     handleIpaManagerTapped()
+                } else if action == "conversationFinished" {
+                    let title = body["title"] as? String ?? ""
+                    DispatchQueue.main.async {
+                        self.triggerConversationFinishedNotification(title: title)
+                    }
                 }
             } else if let action = message.body as? String {
                 if action == "openIpaManager" || action == "openDownloadManager" {
                     handleIpaManagerTapped()
+                } else if action == "goBack" {
+                    DispatchQueue.main.async {
+                        self.handleGoBack()
+                    }
                 }
             }
         }
