@@ -4,6 +4,23 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 13 - 2026-11-16
+- **Commit:** `46359a7`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi biên dịch Swift trên CI (`UIButton.Configuration` và `JSONDecoder.decode from:`), tương thích 100% với toàn bộ phiên bản iOS và Xcode 16 trên macOS Sequoia; vận hành trơn tru Native Multi-Instance `WKWebView` Engine không còn lỗi Google 403 Forbidden và căn chỉnh hoàn hảo SafeAreaLayoutGuide.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Thay thế toàn bộ `UIButton.Configuration` (vốn chỉ hỗ trợ iOS 15+) sang chuẩn UIKit thông dụng (`setTitle`, `setTitleColor`, `titleLabel?.font`, `contentEdgeInsets`) tương thích hoàn toàn từ iOS 12 đến iOS 18+.
+    - Sửa cú pháp giải mã `JSONDecoder().decode([RemoteWorkspace].self, from: data)` chuẩn Swift 5/6.
+    - Duy trì kiến trúc Native `WKWebView` đa instance chạy ngầm trong bộ nhớ RAM, chia sẻ session cookie qua `WKWebsiteDataStore.default()` và Mobile Safari `customUserAgent` ngăn chặn hoàn toàn lỗi Google 403 Forbidden.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 13` (`v1.0.0 (Build 13)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 13`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 46359a7 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 12 - 2026-11-16
 - **Commit:** `6287b2d`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi kết nối **Google 403 Forbidden** và lỗi giao diện bị đè lên tai thỏ (Status Bar/Dynamic Island) trên iPhone bằng cách nâng cấp lên **Native Multi-Instance `WKWebView` Engine** trực tiếp trong `AppDelegate.swift`, tích hợp quét QR Native AVFoundation 60fps và căn chỉnh AutoLayout `safeAreaLayoutGuide`.

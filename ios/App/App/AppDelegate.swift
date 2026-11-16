@@ -29,7 +29,7 @@ class WorkspaceStore {
 
     func getWorkspaces() -> [RemoteWorkspace] {
         if let data = UserDefaults.standard.data(forKey: keyWorkspaces),
-           let list = try? JSONDecoder().decode([RemoteWorkspace].self, data), !list.isEmpty {
+           let list = try? JSONDecoder().decode([RemoteWorkspace].self, from: data), !list.isEmpty {
             return list
         }
         return [WorkspaceStore.defaultWorkspace]
@@ -349,17 +349,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             button.translatesAutoresizingMaskIntoConstraints = false
             button.tag = workspaces.firstIndex(where: { $0.id == ws.id }) ?? 0
 
-            // Title styling
-            var config = UIButton.Configuration.plain()
-            config.title = ws.name
-            config.baseForegroundColor = isActive ? .white : .label
-            config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10)
-            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                var outgoing = incoming
-                outgoing.font = UIFont.systemFont(ofSize: 12, weight: isActive ? .bold : .medium)
-                return outgoing
-            }
-            button.configuration = config
+            // Universal UIKit title & styling
+            button.setTitle(ws.name, for: .normal)
+            button.setTitleColor(isActive ? .white : .label, for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: isActive ? .bold : .medium)
+            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
 
             button.backgroundColor = isActive ? UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0) : UIColor.secondarySystemFill
             button.layer.cornerRadius = 14
@@ -529,7 +523,6 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
 
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
-    private let overlayView = UIView()
     private let closeButton = UIButton(type: .system)
     private let pasteButton = UIButton(type: .system)
     private let titleLabel = UILabel()
@@ -608,16 +601,16 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
         reticle.backgroundColor = .clear
         view.addSubview(reticle)
 
-        // Paste Button
+        // Paste Button (Universal UIKit)
         pasteButton.translatesAutoresizingMaskIntoConstraints = false
-        var config = UIButton.Configuration.filled()
-        config.title = "Dán Link Từ Bộ Nhớ Tạm"
-        config.image = UIImage(systemName: "doc.on.clipboard")
-        config.imagePadding = 6
-        config.baseBackgroundColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
-        config.baseForegroundColor = .white
-        config.cornerStyle = .capsule
-        pasteButton.configuration = config
+        pasteButton.setTitle(" Dán Link Từ Bộ Nhớ Tạm", for: .normal)
+        pasteButton.setImage(UIImage(systemName: "doc.on.clipboard"), for: .normal)
+        pasteButton.setTitleColor(.white, for: .normal)
+        pasteButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+        pasteButton.tintColor = .white
+        pasteButton.backgroundColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        pasteButton.layer.cornerRadius = 24
+        pasteButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 20, bottom: 10, right: 20)
         pasteButton.addTarget(self, action: #selector(handlePasteLink), for: .touchUpInside)
         view.addSubview(pasteButton)
 
