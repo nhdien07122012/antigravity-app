@@ -4,6 +4,33 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 21 - 2026-11-16
+- **Commit:** `151a59c`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi Google 403 Forbidden & không load được dữ liệu trong app; loại bỏ 100% hiện tượng viền vuông màu đen mờ trên Dock; bổ sung menu Cài đặt & Điều khiển phiên kết nối toàn diện với tính năng cập nhật URL, đăng nhập Google, xóa cache và xử lý lỗi 403 thông minh.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Sửa lỗi Google 403 Forbidden & Dữ liệu không load:**
+      - Cập nhật URL mặc định sang `https://antigravity.google.com` (thay thế URL session cũ đã hết hạn `3a713708-cef0-49ba-b842-af9504802f6a-v2`).
+      - Bổ sung thuật toán tự động di chuyển (auto-migrate) trong `WorkspaceStore.getWorkspaces()`: tự động phát hiện và chuyển đổi các URL session cũ đã lưu trong `UserDefaults` sang link sạch, không để người dùng bị kẹt ở màn hình 403.
+      - Gỡ bỏ hoàn toàn CSS rule và script can thiệp DOM trong `webView(_:didFinish:)` vốn đã vô tình ẩn toàn bộ phần tử gốc của Google Antigravity Remote.
+      - Bổ sung `WKUIDelegate` với phương thức `createWebViewWith` giúp xử lý các điều hướng popup hoặc Google OAuth trực tiếp trong WebView mà không bị hủy ngang.
+      - Bổ sung hàm `webView(_:decidePolicyFor:navigationResponse:)` trong `WKNavigationDelegate` tự động nhận diện phản hồi HTTP 403 và hiển thị banner thông báo thân thiện hướng dẫn người dùng quét mã mới hoặc đăng nhập lại Google.
+      - Cập nhật nút Settings trên Dock thành icon bánh răng `gearshape` mở bảng điều khiển đa năng: Phóng to/thu nhỏ font chữ (70% - 220%), Cập nhật liên kết URL mới, Đổi tên tab, Đăng nhập tài khoản Google, Tải lại tab, Xóa tab, Xóa toàn bộ Cache & Đăng xuất.
+      - Cải tiến `QRScannerViewController.handlePasteLink`: hiển thị hộp thoại xác nhận URL cho phép người dùng kiểm tra hoặc sửa link trước khi kết nối.
+    - **Triệt tiêu 100% viền vuông màu đen mờ trên Dock:**
+      - Tách Dock thành cấu trúc 2 lớp chuẩn UIKit:
+        - `dockContainerView` (Lớp ngoài): Giữ bóng đổ `shadowColor`, cập nhật `shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: 24).cgPath` trong `viewDidLayoutSubviews()`, đảm bảo bóng đổ uốn lượn chính xác theo viền bo tròn 24pt, không còn vệt bóng vuông.
+        - `dockEffectView` (Lớp trong): `clipsToBounds = true` khống chế tuyệt đối lớp nền mờ `_UIVisualEffectBackdropView` nằm trọn trong hình capsule bo tròn, triệt tiêu 100% hiện tượng 4 góc vuông mờ đen thừa thãi.
+  - `src/services/workspaceStore.ts`: Đồng bộ `DEFAULT_WORKSPACE` sang `https://antigravity.google.com` và bổ sung auto-migrate cho Web/Capacitor.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 21` (`v1.0.0 (Build 21)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 21`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 151a59c --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 19 - 2026-11-16
 - **Commit:** `12c6d1a`
 - **Mục tiêu thay đổi tóm tắt:** Khôi phục layout Dock theo chuẩn Bản Dựng 13 (Build 13) kết hợp bo tròn mềm mại toàn diện (`cornerRadius: 24`, continuous curve); đồng thời bổ sung bộ App Icon Antigravity chính thức hỗ trợ trọn vẹn 3 chế độ Light / Dark / Tinted (Clear) của iOS 18 trên Xcode 16.

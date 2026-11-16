@@ -10,8 +10,8 @@ const KEYS = {
 const DEFAULT_WORKSPACE: RemoteWorkspace = {
   id: 'ws_antigravity_app',
   name: 'antigravity-app',
-  url: 'https://accounts.google.com/AccountChooser?Email=dien07122012%40gmail.com&continue=https%3A%2F%2Fantigravity.google.com%2Fr%2F3a713708-cef0-49ba-b842-af9504802f6a-v2',
-  sessionId: '3a713708-cef0-49ba-b842-af9504802f6a-v2',
+  url: 'https://antigravity.google.com',
+  sessionId: undefined,
   accountEmail: 'dien07122012@gmail.com',
   createdAt: new Date().toISOString(),
   lastAccessedAt: new Date().toISOString(),
@@ -73,7 +73,20 @@ export const workspaceStore = {
       const { value } = await Preferences.get({ key: KEYS.WORKSPACES });
       if (value) {
         const parsed = JSON.parse(value);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let migrated = false;
+          for (const item of parsed) {
+            if (item.url && item.url.includes('3a713708-cef0-49ba-b842-af9504802f6a-v2')) {
+              item.url = 'https://antigravity.google.com';
+              item.sessionId = undefined;
+              migrated = true;
+            }
+          }
+          if (migrated) {
+            await Preferences.set({ key: KEYS.WORKSPACES, value: JSON.stringify(parsed) });
+          }
+          return parsed;
+        }
       }
       return [DEFAULT_WORKSPACE];
     } catch {

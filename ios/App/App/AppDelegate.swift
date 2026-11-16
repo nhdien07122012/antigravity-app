@@ -21,15 +21,26 @@ class WorkspaceStore {
     static let defaultWorkspace = RemoteWorkspace(
         id: "ws_default",
         name: "antigravity-app",
-        url: "https://accounts.google.com/AccountChooser?Email=dien07122012%40gmail.com&continue=https%3A%2F%2Fantigravity.google.com%2Fr%2F3a713708-cef0-49ba-b842-af9504802f6a-v2",
-        sessionId: "3a713708-cef0-49ba-b842-af9504802f6a-v2",
+        url: "https://antigravity.google.com",
+        sessionId: nil,
         accountEmail: "dien07122012@gmail.com",
         colorHex: "#2563EB"
     )
 
     func getWorkspaces() -> [RemoteWorkspace] {
         if let data = UserDefaults.standard.data(forKey: keyWorkspaces),
-           let list = try? JSONDecoder().decode([RemoteWorkspace].self, from: data), !list.isEmpty {
+           var list = try? JSONDecoder().decode([RemoteWorkspace].self, from: data), !list.isEmpty {
+            var changed = false
+            for i in 0..<list.count {
+                if list[i].url.contains("3a713708-cef0-49ba-b842-af9504802f6a-v2") {
+                    list[i].url = "https://antigravity.google.com"
+                    list[i].sessionId = nil
+                    changed = true
+                }
+            }
+            if changed {
+                saveWorkspaces(list)
+            }
             return list
         }
         return [WorkspaceStore.defaultWorkspace]
@@ -106,7 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 // MARK: - Main Container View Controller
-class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDelegate {
+class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, QRScannerDelegate {
 
     private var workspaces: [RemoteWorkspace] = []
     private var activeWorkspaceId: String = ""
@@ -115,8 +126,9 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     // Container for WKWebViews
     private let containerView = UIView()
 
-    // Floating Capsule Dock (Build 13 layout with smooth rounded corners)
-    private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
+    // Floating Capsule Dock (Build 13 layout with smooth rounded corners & zero square shadow)
+    private let dockContainerView = UIView()
+    private let dockEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
     private let dockScrollView = UIScrollView()
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
@@ -147,6 +159,17 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         loadWorkspaces()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Ensure precise capsule shadow path: eliminates any rectangular/square shadow artifact!
+        if dockContainerView.bounds.width > 0 && dockContainerView.bounds.height > 0 {
+            dockContainerView.layer.shadowPath = UIBezierPath(
+                roundedRect: dockContainerView.bounds,
+                cornerRadius: 24
+            ).cgPath
+        }
+    }
+
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         updateDockTheme()
@@ -155,20 +178,20 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
     private func updateDockTheme() {
         let isDark = traitCollection.userInterfaceStyle == .dark
-        dockView.effect = UIBlurEffect(style: isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight)
+        dockEffectView.effect = UIBlurEffect(style: isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight)
 
         let dockBg = isDark
             ? UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.82)
             : UIColor(red: 0.98, green: 0.98, blue: 1.00, alpha: 0.88)
-        dockView.contentView.backgroundColor = dockBg
+        dockEffectView.contentView.backgroundColor = dockBg
 
         let borderColor = isDark
             ? UIColor(white: 1.0, alpha: 0.18).cgColor
             : UIColor(white: 0.0, alpha: 0.12).cgColor
 
-        dockView.layer.borderColor = borderColor
-        dockView.layer.shadowColor = UIColor.black.cgColor
-        dockView.layer.shadowOpacity = isDark ? 0.38 : 0.18
+        dockEffectView.layer.borderColor = borderColor
+        dockContainerView.layer.shadowColor = UIColor.black.cgColor
+        dockContainerView.layer.shadowOpacity = isDark ? 0.32 : 0.15
 
         let tintColor: UIColor = isDark ? .white : .label
         addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
@@ -184,22 +207,30 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
 
-        // 2. Floating Dock Capsule (Bo tròn các góc hoàn hảo - CornerRadius 24)
-        dockView.translatesAutoresizingMaskIntoConstraints = false
-        dockView.layer.cornerRadius = 24
-        dockView.layer.cornerCurve = .continuous
-        dockView.layer.masksToBounds = false
-        dockView.layer.shadowRadius = 14
-        dockView.layer.shadowOffset = CGSize(width: 0, height: 4)
-        dockView.layer.borderWidth = 0.65
-        view.addSubview(dockView)
+        // 2. Dock Container (holds the smooth capsule shadow)
+        dockContainerView.translatesAutoresizingMaskIntoConstraints = false
+        dockContainerView.backgroundColor = .clear
+        dockContainerView.layer.cornerRadius = 24
+        dockContainerView.layer.cornerCurve = .continuous
+        dockContainerView.layer.masksToBounds = false
+        dockContainerView.layer.shadowRadius = 12
+        dockContainerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        view.addSubview(dockContainerView)
 
-        let dockContentView = dockView.contentView
+        // 3. Dock Frosted Glass Effect (strictly clipped to cornerRadius = 24, zero square halo)
+        dockEffectView.translatesAutoresizingMaskIntoConstraints = false
+        dockEffectView.layer.cornerRadius = 24
+        dockEffectView.layer.cornerCurve = .continuous
+        dockEffectView.clipsToBounds = true
+        dockEffectView.layer.borderWidth = 0.65
+        dockContainerView.addSubview(dockEffectView)
+
+        let dockContentView = dockEffectView.contentView
         dockContentView.layer.cornerRadius = 24
         dockContentView.layer.cornerCurve = .continuous
         dockContentView.clipsToBounds = true
 
-        // 3. Scrollable Project Tabs
+        // 4. Scrollable Project Tabs
         dockScrollView.translatesAutoresizingMaskIntoConstraints = false
         dockScrollView.showsHorizontalScrollIndicator = false
         dockContentView.addSubview(dockScrollView)
@@ -210,7 +241,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         dockStackView.alignment = .center
         dockScrollView.addSubview(dockStackView)
 
-        // 4. Action Buttons Stack
+        // 5. Action Buttons Stack
         actionStackView.translatesAutoresizingMaskIntoConstraints = false
         actionStackView.axis = .horizontal
         actionStackView.spacing = 4
@@ -219,7 +250,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         setupActionButton(addButton, iconName: "plus", action: #selector(handleAddWorkspace))
         setupActionButton(reloadButton, iconName: "arrow.clockwise", action: #selector(handleReloadActiveTab))
-        setupActionButton(settingsButton, iconName: "textformat.size", action: #selector(handleSettingsTapped))
+        setupActionButton(settingsButton, iconName: "gearshape", action: #selector(handleSettingsTapped))
         setupActionButton(fullscreenButton, iconName: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullscreen))
 
         actionStackView.addArrangedSubview(addButton)
@@ -227,7 +258,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         actionStackView.addArrangedSubview(settingsButton)
         actionStackView.addArrangedSubview(fullscreenButton)
 
-        // 5. Restore Floating Button (shown in fullscreen)
+        // 6. Restore Floating Button (shown in fullscreen)
         restoreButton.translatesAutoresizingMaskIntoConstraints = false
         restoreButton.setImage(UIImage(systemName: "arrow.down.right.and.arrow.up.left"), for: .normal)
         restoreButton.tintColor = .white
@@ -252,11 +283,17 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             // Floating dock pinned safely above home indicator (Build 13)
-            dockView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            dockView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
-            dockView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
-            dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            dockView.heightAnchor.constraint(equalToConstant: 48),
+            dockContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            dockContainerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
+            dockContainerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
+            dockContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            dockContainerView.heightAnchor.constraint(equalToConstant: 48),
+
+            // Dock effect view fills dock container
+            dockEffectView.topAnchor.constraint(equalTo: dockContainerView.topAnchor),
+            dockEffectView.bottomAnchor.constraint(equalTo: dockContainerView.bottomAnchor),
+            dockEffectView.leadingAnchor.constraint(equalTo: dockContainerView.leadingAnchor),
+            dockEffectView.trailingAnchor.constraint(equalTo: dockContainerView.trailingAnchor),
 
             // Dock scroll view
             dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 8),
@@ -333,6 +370,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = self
+        webView.uiDelegate = self
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         // Add bottom inset so page content can scroll comfortably above the dock
         webView.scrollView.contentInset.bottom = 60
@@ -347,7 +385,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
 
-        if let targetUrl = URL(string: ws.url) {
+        let cleanUrl = ws.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let targetUrl = URL(string: cleanUrl) ?? URL(string: cleanUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
             let request = URLRequest(url: targetUrl)
             webView.load(request)
         }
@@ -424,8 +463,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     @objc private func toggleFullscreen() {
         isFullscreen.toggle()
         UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
-            self.dockView.alpha = self.isFullscreen ? 0 : 1
-            self.dockView.transform = self.isFullscreen ? CGAffineTransform(translationX: 0, y: 30) : .identity
+            self.dockContainerView.alpha = self.isFullscreen ? 0 : 1
+            self.dockContainerView.transform = self.isFullscreen ? CGAffineTransform(translationX: 0, y: 30) : .identity
             self.restoreButton.alpha = self.isFullscreen ? 1 : 0
         }
     }
@@ -526,11 +565,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
     }
 
-    // MARK: - Zoom & Font Size Settings
+    // MARK: - Zoom, Font Size & Project Settings
     @objc private func handleSettingsTapped() {
         let percent = Int(currentZoom * 100)
         let sheet = UIAlertController(
-            title: "Cài Đặt Cỡ Chữ & Thu Phóng",
+            title: "Cài Đặt & Điều Khiển Dự Án",
             message: "Mức phóng to hiện tại: \(percent)%",
             preferredStyle: .actionSheet
         )
@@ -550,12 +589,33 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
 
         if let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
+            sheet.addAction(UIAlertAction(title: "🔗 Cập nhật liên kết URL / Phiên mới", style: .default, handler: { _ in
+                self.showUpdateUrlDialog(for: active)
+            }))
             sheet.addAction(UIAlertAction(title: "✏️ Đổi tên tab (\(active.name))", style: .default, handler: { _ in
                 self.showRenameDialog(for: active)
             }))
         }
 
-        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "🔑 Đăng nhập tài khoản Google", style: .default, handler: { _ in
+            self.navigateToGoogleLogin()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🔄 Tải lại trang này", style: .default, handler: { _ in
+            self.handleReloadActiveTab()
+        }))
+
+        if workspaces.count > 1, let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
+            sheet.addAction(UIAlertAction(title: "🗑️ Xóa tab này (\(active.name))", style: .destructive, handler: { _ in
+                self.removeWorkspace(active)
+            }))
+        }
+
+        sheet.addAction(UIAlertAction(title: "🧹 Xóa dữ liệu Cache & Phiên cũ", style: .destructive, handler: { _ in
+            self.clearCacheAndReload()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "Đóng", style: .cancel))
 
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = settingsButton
@@ -563,6 +623,79 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
 
         present(sheet, animated: true)
+    }
+
+    private func showUpdateUrlDialog(for ws: RemoteWorkspace) {
+        let alert = UIAlertController(
+            title: "Cập Nhật Liên Kết Dự Án",
+            message: "Nhập hoặc dán link Google Antigravity Remote mới:",
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.text = ws.url
+            tf.placeholder = "https://antigravity.google.com/..."
+            tf.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cập Nhật & Tải Lại", style: .default, handler: { _ in
+            if let newUrl = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !newUrl.isEmpty {
+                if let idx = self.workspaces.firstIndex(where: { $0.id == ws.id }) {
+                    let parsed = WorkspaceStore.shared.parseGoogleRemoteUrl(newUrl)
+                    self.workspaces[idx].url = parsed.url
+                    if let sid = parsed.sessionId { self.workspaces[idx].sessionId = sid }
+                    if let email = parsed.email { self.workspaces[idx].accountEmail = email }
+                    WorkspaceStore.shared.saveWorkspaces(self.workspaces)
+
+                    if let wv = self.webViews[ws.id] {
+                        let clean = parsed.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let targetUrl = URL(string: clean) ?? URL(string: clean.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
+                            wv.load(URLRequest(url: targetUrl))
+                        }
+                    }
+                    self.renderDockTabs()
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            }
+        }))
+        present(alert, animated: true)
+    }
+
+    private func navigateToGoogleLogin() {
+        if let active = webViews[activeWorkspaceId] {
+            if let loginUrl = URL(string: "https://accounts.google.com") {
+                active.load(URLRequest(url: loginUrl))
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
+        }
+    }
+
+    private func clearCacheAndReload() {
+        let dataStore = WKWebsiteDataStore.default()
+        let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+        dataStore.removeData(ofTypes: dataTypes, modifiedSince: Date(timeIntervalSince1970: 0)) {
+            DispatchQueue.main.async {
+                self.handleReloadActiveTab()
+                let alert = UIAlertController(title: "Đã Xóa Dữ Liệu Cache", message: "Bộ nhớ đệm và các phiên lưu cũ đã được làm mới thành công.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "Đóng", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
+    private func showAccessDeniedBanner() {
+        let alert = UIAlertController(
+            title: "Phiên Kết Nối Hết Hạn (Lỗi 403)",
+            message: "Phiên làm việc này đã kết thúc trên máy chủ hoặc tài khoản cần cấp lại quyền truy cập. Bạn có muốn quét mã QR mới hoặc đăng nhập lại Google?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Quét Mã QR Mới", style: .default, handler: { _ in
+            self.handleAddWorkspace()
+        }))
+        alert.addAction(UIAlertAction(title: "Đăng Nhập Google", style: .default, handler: { _ in
+            self.navigateToGoogleLogin()
+        }))
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
     }
 
     private func adjustZoom(by delta: CGFloat) {
@@ -589,62 +722,59 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         webView.evaluateJavaScript("document.body.style.zoom = '\(percent)%'", completionHandler: nil)
     }
 
-    // MARK: - WKNavigationDelegate
+    // MARK: - WKNavigationDelegate & WKUIDelegate
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Continuous cleaner script with MutationObserver: hides dev logo and eliminates extra header padding
-        let script = """
-        (function() {
-            var style = document.createElement('style');
-            style.id = 'ag-mobile-cleaner-v3';
-            style.textContent = `
-                header, nav, [role="banner"], [class*="header" i], [class*="topbar" i], .boqOnegoogleliteOgbOneGoogleBar, #gb {
-                    padding-top: 0px !important;
-                    margin-top: 0px !important;
-                }
-                [aria-label*="Antigravity" i], [title*="Antigravity" i] {
-                    display: none !important;
-                }
-            `;
-            if (!document.getElementById('ag-mobile-cleaner-v3')) {
-                (document.head || document.documentElement).appendChild(style);
-            }
-
-            function removeDevLogo() {
-                var candidates = document.querySelectorAll('svg, img, [role="img"], a, button');
-                for (var i = 0; i < candidates.length; i++) {
-                    var el = candidates[i];
-                    var rect = el.getBoundingClientRect();
-                    // Antigravity dev logo sits in the top-left area
-                    if (rect.left >= 0 && rect.left < 60 && rect.top >= 0 && rect.top < 65 && rect.width > 12 && rect.width < 50) {
-                        var text = (el.innerText || el.closest('button, [role="button"]')?.innerText || '');
-                        if (!text.includes('DELL') && !text.includes('Sign')) {
-                            var target = el.closest('a, button, div[role="button"]') || el;
-                            target.style.setProperty('display', 'none', 'important');
-                            target.style.setProperty('width', '0px', 'important');
-                            target.style.setProperty('visibility', 'hidden', 'important');
-                        }
-                    }
-                }
-            }
-
-            removeDevLogo();
-            var observer = new MutationObserver(removeDevLogo);
-            observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-        })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-
+        // Safe navigation finish: apply zoom without destroying Google DOM
         if currentZoom != 1.0 {
             applyZoom(currentZoom, to: webView)
         }
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if let httpResponse = navigationResponse.response as? HTTPURLResponse {
+            if httpResponse.statusCode == 403 {
+                DispatchQueue.main.async {
+                    self.showAccessDeniedBanner()
+                }
+            }
+        }
+        decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("[WKWebView] didFailProvisionalNavigation: \(error.localizedDescription)")
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("[WKWebView] didFail: \(error.localizedDescription)")
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if navigationAction.targetFrame == nil {
+            webView.load(navigationAction.request)
+        }
+        return nil
     }
 
     // MARK: - QRScannerDelegate
     func didScanWorkspace(url: String, customName: String?) {
         let parsed = WorkspaceStore.shared.parseGoogleRemoteUrl(url)
 
-        if let existing = workspaces.first(where: { (parsed.sessionId != nil && $0.sessionId == parsed.sessionId) || $0.url == parsed.url }) {
-            switchWorkspace(to: existing.id)
+        if let existingIdx = workspaces.firstIndex(where: { (parsed.sessionId != nil && $0.sessionId == parsed.sessionId) || $0.url == parsed.url }) {
+            // Update URL & reload existing workspace
+            workspaces[existingIdx].url = parsed.url
+            if let sid = parsed.sessionId { workspaces[existingIdx].sessionId = sid }
+            if let email = parsed.email { workspaces[existingIdx].accountEmail = email }
+            WorkspaceStore.shared.saveWorkspaces(workspaces)
+
+            let existingId = workspaces[existingIdx].id
+            if let wv = webViews[existingId] {
+                let clean = parsed.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let targetUrl = URL(string: clean) ?? URL(string: clean.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
+                    wv.load(URLRequest(url: targetUrl))
+                }
+            }
+            switchWorkspace(to: existingId)
             return
         }
 
@@ -792,28 +922,29 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
     }
 
     @objc private func handlePasteLink() {
-        if let clipboardText = UIPasteboard.general.string, !clipboardText.isEmpty {
-            captureSession?.stopRunning()
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            dismiss(animated: true) {
-                self.delegate?.didScanWorkspace(url: clipboardText, customName: nil)
-            }
-        } else {
-            let alert = UIAlertController(title: "Nhập Link Kết Nối", message: "Nhập URL Google Antigravity Remote:", preferredStyle: .alert)
-            alert.addTextField { tf in
-                tf.placeholder = "https://accounts.google.com/..."
-            }
-            alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-            alert.addAction(UIAlertAction(title: "Mở", style: .default, handler: { _ in
-                if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-                    self.captureSession?.stopRunning()
-                    self.dismiss(animated: true) {
-                        self.delegate?.didScanWorkspace(url: text, customName: nil)
-                    }
-                }
-            }))
-            present(alert, animated: true)
+        let clipboard = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let defaultText = clipboard.starts(with: "http") ? clipboard : ""
+
+        let alert = UIAlertController(
+            title: "Nhập Hoặc Dán Liên Kết",
+            message: "Dán link Google Antigravity Remote hoặc nhập URL kết nối:",
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.text = defaultText
+            tf.placeholder = "https://antigravity.google.com/..."
+            tf.clearButtonMode = .whileEditing
         }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Mở Dự Án", style: .default, handler: { _ in
+            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                self.captureSession?.stopRunning()
+                self.dismiss(animated: true) {
+                    self.delegate?.didScanWorkspace(url: text, customName: nil)
+                }
+            }
+        }))
+        present(alert, animated: true)
     }
 
     private func showCameraUnavailableAlert() {
