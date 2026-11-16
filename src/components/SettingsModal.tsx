@@ -45,6 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     keepAliveInMemory: true,
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [autoSyncOnResume, setAutoSyncOnResume] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isSaved, setIsSaved] = useState(false);
   const [testNotificationStatus, setTestNotificationStatus] = useState<string | null>(null);
@@ -56,6 +57,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (savedNotif !== null) {
         setNotificationsEnabled(savedNotif === 'true');
       }
+      const savedAutoSync = localStorage.getItem('ag_autosync_enabled');
+      if (savedAutoSync !== null) {
+        setAutoSyncOnResume(savedAutoSync === 'true');
+      }
       setIsSaved(false);
       setTestNotificationStatus(null);
     }
@@ -66,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = async () => {
     await workspaceStore.saveSettings(settings);
     localStorage.setItem('ag_notifications_enabled', String(notificationsEnabled));
+    localStorage.setItem('ag_autosync_enabled', String(autoSyncOnResume));
     setIsSaved(true);
     if (onSettingsSaved) onSettingsSaved();
     setTimeout(() => {
@@ -114,14 +120,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       try {
         (window as any).webkit.messageHandlers.antigravityNative.postMessage({
           action: 'conversationFinished',
-          title: 'Thử nghiệm: Xây Dựng Ứng Dụng Antigravity Mobile',
+          projectName: 'antigravity-app',
+          title: 'Thử nghiệm kết quả',
         });
       } catch (e) {}
     } else {
       // In web browser preview
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Antigravity Mobile 🎉', {
-          body: 'Hội thoại đã có kết quả! Phản hồi và tác vụ đã xong.',
+        new Notification('📁 Dự Án: antigravity-app 🎉', {
+          body: 'Dự án "antigravity-app" đã hoàn thành phản hồi và tác vụ mới!',
         });
       }
     }
@@ -302,6 +309,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 checked={notificationsEnabled}
                 onChange={(e) => setNotificationsEnabled(e.target.checked)}
                 className="w-5 h-5 text-purple-600 rounded-md focus:ring-purple-500 mt-1 cursor-pointer"
+              />
+            </div>
+
+            {/* Auto-Sync on Resume Toggle Card */}
+            <div className="flex items-start justify-between p-3.5 bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/80 dark:border-blue-900/40 rounded-2xl gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <ArrowPathIcon className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white">
+                    Tự Động Cập Nhật Khi Mở Lại App
+                  </p>
+                  <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">
+                    Tự động đồng bộ tin nhắn và tác vụ mới nhất khi quay lại từ đa nhiệm mà không cần bấm reload thủ công.
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={autoSyncOnResume}
+                onChange={(e) => setAutoSyncOnResume(e.target.checked)}
+                className="w-5 h-5 text-blue-600 rounded-md focus:ring-blue-500 mt-1 cursor-pointer"
               />
             </div>
 

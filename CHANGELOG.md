@@ -4,6 +4,37 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 27 - 2026-11-16
+- **Commit:** `b8d438f`
+- **GitHub Actions Run:** `pending`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi không tự động load dữ liệu mới nhất khi chuyển đa nhiệm (Background Multitasking) bằng cơ chế giữ kết nối nền (Background Keep-Alive Task) và tự động đồng bộ làm mới dữ liệu khi mở lại app (Auto-Sync on Resume); Đồng thời cập nhật hệ thống thông báo hiển thị nổi bật **Tên của Project** (thay vì tên của conversation) trên cả biểu ngữ Toast Banner trong ứng dụng và thông báo đẩy hệ thống iOS (UNUserNotificationCenter).
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Cập nhật hiển thị Tên Project trong Thông Báo:**
+      - Sửa `triggerConversationFinishedNotification(title:projectName:)`: Luôn ưu tiên hiển thị Tên Project (`📁 Dự Án: <tên project> 🎉` và tiêu đề thông báo iOS `📁 <tên project> 🎉`).
+      - Bổ sung hàm `detectProjectName()` trong kịch bản DOM `watcherScriptSource`: Tự động nhận diện tên thư mục/dự án đang mở từ breadcrumbs và DOM container.
+      - Chuyển tiếp tham số `projectName` qua `WKScriptMessageHandler` khi hội thoại hoàn tất.
+    - **Cơ chế giữ kết nối nền (Background Keep-Alive Task):**
+      - Thêm observer `UIApplication.didEnterBackgroundNotification`: Kích hoạt `UIBackgroundTaskIdentifier` (`UIApplication.shared.beginBackgroundTask`) ngay khi app chuyển vào chế độ đa nhiệm. Ngăn chặn iOS WebKit lập tức đóng băng tiến trình WebSocket và JavaScript, cho phép câu trả lời tiếp tục hoàn thành và báo chuông/gửi thông báo ngay cả khi tắt màn hình.
+    - **Tự động đồng bộ và nạp dữ liệu mới khi mở lại app (Auto-Sync on Resume):**
+      - Lắng nghe `UIApplication.willEnterForegroundNotification` và `UIApplication.didBecomeActiveNotification`.
+      - Khi người dùng quay lại app sau khi chuyển đa nhiệm (thời gian nền >= 6 giây), hệ thống tự động reload tab đang mở và phát các sự kiện WebKit wake-up (`online`, `visibilitychange`, `focus`) để tải toàn bộ tin nhắn mới nhất từ máy chủ mà người dùng không cần phải bấm nút reload thủ công.
+      - Tự động đánh thức WebKit khi chuyển đổi giữa các tab dự án (`switchWorkspace`).
+    - **Tùy chọn cấu hình trong Cài Đặt:**
+      - Thêm công tắc `"🔄 Tự Động Cập Nhật Khi Mở Lại App"` (lưu vào `UserDefaults` key `ag_autosync_enabled`, mặc định: ĐANG BẬT) trong `ModernSettingsMenuViewController`.
+      - Cập nhật nút thử nghiệm thông báo để hiển thị chính xác tên project đang mở.
+  - `src/components/SettingsModal.tsx`:
+    - Bổ sung tùy chọn `"Tự Động Cập Nhật Khi Mở Lại App"` với icon `ArrowPathIcon`.
+    - Cập nhật hành động thử nghiệm thông báo với tên project `antigravity-app`.
+  - `src/version.ts`: Nâng cấp lên `Build 27` (`v1.0.0 (Build 27)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 27`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert b8d438f --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 26 - 2026-11-16
 - **Commit:** `40c4069`
 - **GitHub Actions Run:** `#43892650873` (success)

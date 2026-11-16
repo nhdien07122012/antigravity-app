@@ -170,6 +170,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private var isFullscreen = false
     private var currentZoom: CGFloat = 1.0
 
+    // Background Keep-Alive & Auto-Sync
+    private var bgTask: UIBackgroundTaskIdentifier = .invalid
+    private var lastBackgroundDate = Date()
+
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
     }
@@ -186,6 +190,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         setupLayout()
         updateDockTheme()
         loadWorkspaces()
+
+        // Background Lifecycle Observers for Keep-Alive & Auto-Sync
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
 
         DownloadManager.shared.onActiveCountChanged = { [weak self] count in
             DispatchQueue.main.async {
@@ -478,6 +487,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             let busyStartTime = 0;
             let lastTitle = '';
 
+            function detectProjectName() {
+                try {
+                    // Check project name header or folder label
+                    const projectFolder = document.querySelector('.project-name, [data-project-name], [data-project], [aria-label*="project" i]');
+                    if (projectFolder && projectFolder.textContent.trim()) {
+                        return projectFolder.textContent.trim();
+                    }
+                    const candidates = document.querySelectorAll('span, div, p');
+                    for (const el of candidates) {
+                        const t = el.textContent.trim();
+                        if (/^(?:antigravity-app|LANMonitor|Cloud-Photos|cleanyourtv|gas|Insta-Downloader|worse_query|vnpost-auto-extension|diennguyen)$/i.test(t)) {
+                            return t;
+                        }
+                    }
+                } catch(e) {}
+                return '';
+            }
+
             function detectBusyState() {
                 const text = document.body ? document.body.innerText : '';
                 const hasRunningText = /\\b\\d+\\s+tasks?\\s+running\\b/i.test(text) ||
@@ -507,6 +534,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                             if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.antigravityNative) {
                                 window.webkit.messageHandlers.antigravityNative.postMessage({
                                     action: 'conversationFinished',
+                                    projectName: detectProjectName(),
                                     title: lastTitle || document.title || 'Hội thoại Antigravity'
                                 });
                             }
@@ -516,6 +544,19 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             }
 
             setInterval(check, 800);
+
+            // Re-sync and awaken when app returns from multitasking
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    window.dispatchEvent(new Event('online'));
+                    window.dispatchEvent(new Event('focus'));
+                    setTimeout(check, 400);
+                }
+            });
+            window.addEventListener('focus', function() {
+                window.dispatchEvent(new Event('online'));
+                setTimeout(check, 400);
+            });
         })();
         """
 
@@ -560,6 +601,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         updateActiveVisibility()
         renderDockTabs()
 
+        dispatchWakeupEventsToActiveWebView()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -659,27 +701,40 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         present(sheet, animated: true)
     }
 
-    // MARK: - Conversation Completion Notification
-    private func triggerConversationFinishedNotification(title: String) {
+    // MARK: - Conversation Completion Notification (Displays Project Name)
+    private func triggerConversationFinishedNotification(title: String, projectName: String? = nil) {
         let isEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
         guard isEnabled else { return }
 
-        // 1. Success Haptics
+        // 1. Resolve Project Name: Always prioritize project name over conversation title
+        let currentWs = workspaces.first(where: { $0.id == activeWorkspaceId })
+        let resolvedProjectName: String = {
+            if let p = projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+                return p
+            }
+            if let wsName = currentWs?.name.trimmingCharacters(in: .whitespacesAndNewlines), !wsName.isEmpty && wsName != "Dự Án Antigravity" {
+                return wsName
+            }
+            return currentWs?.name ?? "Dự Án Antigravity"
+        }()
+
+        // 2. Success Haptics
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
-        // 2. Play subtle notification chime
+        // 3. Play subtle notification chime
         AudioServicesPlaySystemSound(1025)
 
-        // 3. Show Animated In-App Banner
+        // 4. Show Animated In-App Banner (Prominently displaying Project Name)
         showToastBanner(
-            title: "Hội Thoại Hoàn Thành! 🎉",
-            message: title.isEmpty ? "Phản hồi và tác vụ đã được xử lý xong." : title
+            title: "📁 Dự Án: \(resolvedProjectName) 🎉",
+            message: "Đã hoàn thành phản hồi và tác vụ mới."
         )
 
-        // 4. Fire Local Notification (for Background/Lockscreen or Banner)
+        // 5. Fire Local Notification (for Background/Lockscreen/Banner - Project Name as Title)
         let content = UNMutableNotificationContent()
-        content.title = "Antigravity Mobile 🎉"
-        content.body = title.isEmpty ? "Hội thoại đã có kết quả! Chạm để xem chi tiết." : "Đã hoàn thành: \(title)"
+        content.title = "📁 \(resolvedProjectName) 🎉"
+        content.subtitle = "Đã Hoàn Thành Phản Hồi"
+        content.body = "Dự án \"\(resolvedProjectName)\" đã có kết quả mới! Chạm để xem chi tiết."
         content.sound = .default
         content.badge = 1
 
@@ -715,6 +770,69 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             self.toastBannerView.alpha = 0
             self.toastBannerView.transform = CGAffineTransform(translationX: 0, y: -50)
         }
+    }
+
+    // MARK: - App Background Keep-Alive & Auto-Sync
+    @objc private func handleAppDidEnterBackground() {
+        lastBackgroundDate = Date()
+
+        // Request background execution time so WebKit and WebSocket can keep running in background while user is in multitasking
+        if bgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTask)
+            bgTask = .invalid
+        }
+
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "AntigravityBackgroundKeepAlive") { [weak self] in
+            guard let self = self else { return }
+            print("[Background] Keep-alive task expired by iOS.")
+            if self.bgTask != .invalid {
+                UIApplication.shared.endBackgroundTask(self.bgTask)
+                self.bgTask = .invalid
+            }
+        }
+        print("[Background] Keep-alive task started with id: \(bgTask.rawValue)")
+    }
+
+    @objc private func handleAppWillEnterForeground() {
+        let elapsed = Date().timeIntervalSince(lastBackgroundDate)
+        print("[Foreground] App will enter foreground. Time away: \(Int(elapsed))s")
+
+        // End background task if running
+        if bgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTask)
+            bgTask = .invalid
+        }
+
+        // Auto-Sync and wake up WebKit if user was away for > 6 seconds
+        let isAutoSyncEnabled = UserDefaults.standard.object(forKey: "ag_autosync_enabled") as? Bool ?? true
+        if isAutoSyncEnabled && elapsed >= 6.0 {
+            wakeUpAndAutoSyncWebViews(timeAway: elapsed)
+        } else {
+            dispatchWakeupEventsToActiveWebView()
+        }
+    }
+
+    @objc private func handleAppDidBecomeActive() {
+        dispatchWakeupEventsToActiveWebView()
+    }
+
+    private func dispatchWakeupEventsToActiveWebView() {
+        guard let activeWv = webViews[activeWorkspaceId] else { return }
+        let jsWakeup = """
+        (function() {
+            window.dispatchEvent(new Event('online'));
+            document.dispatchEvent(new Event('visibilitychange'));
+            window.dispatchEvent(new Event('focus'));
+        })();
+        """
+        activeWv.evaluateJavaScript(jsWakeup, completionHandler: nil)
+    }
+
+    private func wakeUpAndAutoSyncWebViews(timeAway: TimeInterval) {
+        guard let activeWv = webViews[activeWorkspaceId] else { return }
+        print("[Auto-Sync] Returning from background (\(Int(timeAway))s). Auto-syncing active tab...")
+        activeWv.reload()
+        dispatchWakeupEventsToActiveWebView()
     }
     @objc private func handleTabTapped(_ sender: UIButton) {
         let index = sender.tag
@@ -980,8 +1098,9 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     handleIpaManagerTapped()
                 } else if action == "conversationFinished" {
                     let title = body["title"] as? String ?? ""
+                    let projectName = body["projectName"] as? String
                     DispatchQueue.main.async {
-                        self.triggerConversationFinishedNotification(title: title)
+                        self.triggerConversationFinishedNotification(title: title, projectName: projectName)
                     }
                 } else if action == "openSettings" {
                     DispatchQueue.main.async {
@@ -2249,7 +2368,9 @@ extension MainViewController: ModernSettingsMenuDelegate {
         setZoom(zoom)
     }
     func menuDidTriggerTestNotification() {
-        triggerConversationFinishedNotification(title: "Thử nghiệm: Xây Dựng Ứng Dụng Antigravity Mobile")
+        let currentWs = workspaces.first(where: { $0.id == activeWorkspaceId })
+        let wsName = currentWs?.name ?? "antigravity-app"
+        triggerConversationFinishedNotification(title: "Thử nghiệm kết quả", projectName: wsName)
     }
     func menuDidRequestGoogleLogin() {
         navigateToGoogleLogin()
@@ -2683,10 +2804,64 @@ class ModernSettingsMenuViewController: UIViewController {
         cardStack.addArrangedSubview(switchRow)
 
         // Divider
-        let divider = createDivider()
-        cardStack.addArrangedSubview(divider)
+        cardStack.addArrangedSubview(createDivider())
 
-        // Row 2: Test chime & toast button
+        // Row 2: Auto-Sync on App Resume Switch
+        let autoSyncRow = UIView()
+        let autoSyncStack = UIStackView()
+        autoSyncStack.axis = .horizontal
+        autoSyncStack.alignment = .center
+        autoSyncStack.distribution = .equalSpacing
+        autoSyncStack.translatesAutoresizingMaskIntoConstraints = false
+        autoSyncRow.addSubview(autoSyncStack)
+
+        let autoSyncLeft = UIStackView()
+        autoSyncLeft.axis = .horizontal
+        autoSyncLeft.spacing = 12
+        autoSyncLeft.alignment = .center
+
+        let autoSyncBadge = createIconBadge(iconName: "arrow.triangle.2.circlepath", bgColor: UIColor.systemBlue.withAlphaComponent(0.12), tintColor: .systemBlue)
+        autoSyncLeft.addArrangedSubview(autoSyncBadge)
+
+        let autoSyncText = UIStackView()
+        autoSyncText.axis = .vertical
+        autoSyncText.spacing = 2
+
+        let autoSyncTitle = UILabel()
+        autoSyncTitle.text = "Tự Động Cập Nhật Khi Mở Lại App"
+        autoSyncTitle.font = .systemFont(ofSize: 14, weight: .bold)
+        autoSyncTitle.textColor = .label
+        autoSyncText.addArrangedSubview(autoSyncTitle)
+
+        let autoSyncSubtitle = UILabel()
+        autoSyncSubtitle.text = "Tự động tải dữ liệu mới nhất khi quay lại từ đa nhiệm"
+        autoSyncSubtitle.font = .systemFont(ofSize: 11, weight: .regular)
+        autoSyncSubtitle.textColor = .secondaryLabel
+        autoSyncText.addArrangedSubview(autoSyncSubtitle)
+
+        autoSyncLeft.addArrangedSubview(autoSyncText)
+        autoSyncStack.addArrangedSubview(autoSyncLeft)
+
+        let autoSyncSwitch = UISwitch()
+        let autoSyncEnabled = UserDefaults.standard.object(forKey: "ag_autosync_enabled") as? Bool ?? true
+        autoSyncSwitch.isOn = autoSyncEnabled
+        autoSyncSwitch.onTintColor = .systemBlue
+        autoSyncSwitch.addTarget(self, action: #selector(handleAutoSyncToggle(_:)), for: .valueChanged)
+        autoSyncStack.addArrangedSubview(autoSyncSwitch)
+
+        NSLayoutConstraint.activate([
+            autoSyncStack.topAnchor.constraint(equalTo: autoSyncRow.topAnchor, constant: 12),
+            autoSyncStack.bottomAnchor.constraint(equalTo: autoSyncRow.bottomAnchor, constant: -12),
+            autoSyncStack.leadingAnchor.constraint(equalTo: autoSyncRow.leadingAnchor, constant: 14),
+            autoSyncStack.trailingAnchor.constraint(equalTo: autoSyncRow.trailingAnchor, constant: -14)
+        ])
+
+        cardStack.addArrangedSubview(autoSyncRow)
+
+        // Divider
+        cardStack.addArrangedSubview(createDivider())
+
+        // Row 3: Test chime & toast button
         let testRow = createRowButton(
             iconName: "speaker.wave.2.fill",
             title: "🎉 Thử Nghiệm Chuông & Biểu Ngữ Ngay",
@@ -2710,6 +2885,11 @@ class ModernSettingsMenuViewController: UIViewController {
     @objc private func handleNotificationToggle() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         UserDefaults.standard.set(notifSwitch.isOn, forKey: "ag_notifications_enabled")
+    }
+
+    @objc private func handleAutoSyncToggle(_ sender: UISwitch) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        UserDefaults.standard.set(sender.isOn, forKey: "ag_autosync_enabled")
     }
 
     @objc private func handleTestNotificationTapped() {
