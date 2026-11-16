@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 2 - 2026-11-16
-- **Commit:** `INIT_COMMIT` (sẽ được gắn SHA ngay sau khi commit)
+- **Commit:** `4be59a2`
 - **Mục tiêu thay đổi tóm tắt:** Khởi tạo kiến trúc dự án Antigravity Mobile (iOS/IPA), tích hợp Remote Control QR Code, Chat Canvas chuẩn ChatGPT/Claude, hệ thống phê duyệt lệnh (Tool Approval Banner), và Module WidgetKit iOS (Swift/SwiftUI).
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `PROJECT_RULES.md`: Bộ quy chuẩn kỷ luật bắt buộc của dự án.
@@ -30,5 +30,5 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `.github/workflows/build-ipa.yml`: Workflow tự động biên dịch file `.ipa` trên macOS runner cho Sideloading.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert HEAD --no-edit
+  git revert 4be59a2 --no-edit
   ```
