@@ -1,0 +1,63 @@
+name: Build Antigravity iOS IPA (Sideload)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Build Web Application (Vite -> dist)
+        run: npm run build
+
+      - name: Sync iOS Native Platform (Capacitor)
+        run: npx cap sync ios
+
+      - name: Setup Xcode Version
+        uses: maxim-lobachev/xcode-install-action@v2
+        with:
+          version: '15.4'
+
+      - name: Build iOS Archive
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $PWD/build/App.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean archive
+
+      - name: Package Unsigned IPA for Sideloading
+        run: |
+          cd ios/App/build
+          mkdir -p Payload
+          cp -r App.xcarchive/Products/Applications/App.app Payload/
+          zip -r AntigravityMobile.ipa Payload
+          echo "IPA Package generated at ios/App/build/AntigravityMobile.ipa"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AntigravityMobile-IPA
+          path: ios/App/build/AntigravityMobile.ipa
+          retention-days: 14
