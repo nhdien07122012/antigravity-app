@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 6 - 2026-11-16
-- **Commit:** `37d3a95`
+- **Commit:** `c0c55b2`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để phản hồi tin nhắn giả định (mock canned response), kết nối phản hồi thông minh thời gian thực từ máy chủ (`/api/chat`), hỗ trợ thực thi trực tiếp lệnh terminal qua cú pháp `run <cmd>`, và phân loại tự động danh sách cuộc hội thoại theo từng Project thực tế trên máy tính host.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `vite.config.ts`: Bổ sung API `POST /api/chat` xử lý tin nhắn tương tác thực tế từ app mobile, trả lời thông minh dựa trên bối cảnh dự án đang mở và hỗ trợ thực thi lệnh dòng lệnh an toàn trên máy chủ (`run_command`); bổ sung hàm `getProjectList()` đọc danh sách dự án thật từ `~/.gemini/config/projects/`.
@@ -17,7 +17,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 6`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 37d3a95 --no-edit
+  git revert c0c55b2 --no-edit
   ```
 
 ---
