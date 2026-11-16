@@ -1,20 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb" />
-      <stop offset="50%" stop-color="#4f46e5" />
-      <stop offset="100%" stop-color="#7c3aed" />
+    <linearGradient id="googleGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4285F4" />
+      <stop offset="25%" stop-color="#34A853" />
+      <stop offset="50%" stop-color="#FBBC05" />
+      <stop offset="75%" stop-color="#EA4335" />
+      <stop offset="100%" stop-color="#4285F4" />
     </linearGradient>
-    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8" />
-      <stop offset="100%" stop-color="#c084fc" stop-opacity="0.2" />
-    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#4285F4" flood-opacity="0.3" />
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="128" fill="url(#bg)" />
-  <!-- Orbital Rings -->
-  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#ring)" stroke-width="12" stroke-dasharray="24 16" transform="rotate(-30 256 256)" />
-  <circle cx="256" cy="256" r="120" fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="8" />
-  <!-- Core Planet / Gravity Sphere -->
-  <circle cx="256" cy="256" r="64" fill="#ffffff" />
-  <path d="M256 160 L268 240 L352 256 L268 272 L256 352 L244 272 L160 256 L244 240 Z" fill="#4f46e5" />
+  <rect width="512" height="512" rx="128" fill="#0F1015" />
+  <!-- Antigravity Google Delta A Ribbon -->
+  <path d="M 130 408 L 256 108 L 382 408" fill="none" stroke="url(#googleGrad)" stroke-width="68" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
 </svg>

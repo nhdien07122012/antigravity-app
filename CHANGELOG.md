@@ -4,6 +4,30 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 19 - 2026-11-16
+- **Commit:** `12c6d1a`
+- **Mục tiêu thay đổi tóm tắt:** Khôi phục layout Dock theo chuẩn Bản Dựng 13 (Build 13) kết hợp bo tròn mềm mại toàn diện (`cornerRadius: 24`, continuous curve); đồng thời bổ sung bộ App Icon Antigravity chính thức hỗ trợ trọn vẹn 3 chế độ Light / Dark / Tinted (Clear) của iOS 18 trên Xcode 16.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Khôi phục cấu trúc Dock capsule nổi căn giữa đáy màn hình theo Bản dựng 13 (`dockView.centerXAnchor`, `bottomAnchor = safeAreaLayoutGuide.bottomAnchor - 8`, `height: 48`).
+    - Bo tròn các góc toàn diện: `dockView.layer.cornerRadius = 24`, `cornerCurve = .continuous`; các tab dự án bo tròn `cornerRadius: 17`; các nút hành động (`+`, `↻`, `aA`, `⤢`) bo tròn `cornerRadius: 15`.
+    - Duy trì hỗ trợ Dark/Light mode tự động thích ứng qua `UIBlurEffect`, thanh cuộn ngang dự án không giới hạn, tính năng thu phóng Zoom giao diện (70% - 220%) và chế độ toàn màn hình.
+  - `ios/App/App/Assets.xcassets/AppIcon.appiconset`:
+    - Tạo mới `AppIcon-512@2x.png` (Light Mode): Biểu tượng Antigravity dải màu Google đa sắc rực rỡ trên nền sáng trang nhã kích thước chuẩn 1024x1024 px.
+    - Tạo mới `AppIcon-Dark-512@2x.png` (Dark Mode): Nền tối cao cấp `#141416` kết hợp dải gradient phát quang neon nổi bật trên Home Screen iOS 18 Dark Mode.
+    - Tạo mới `AppIcon-Tinted-512@2x.png` (Tinted / Clear Mode): Nền trong suốt (`RGBA 0,0,0,0`), biểu tượng monochrome thang độ xám chuẩn Apple HIG giúp iOS 18 tự động phủ màu sắc tint theo sở thích người dùng.
+    - Cập nhật `Contents.json` hỗ trợ bộ lọc `"appearance": "luminosity"` (`dark` và `tinted`) cho Xcode 16.
+  - `scripts/generate_app_icons.py`: Tạo script sinh trọn bộ 3 icon 1024x1024 với thuật toán siêu lấy mẫu (Lanczos supersampling) đảm bảo độ nét vector tối đa.
+  - `public/logo.svg`: Cập nhật đồng bộ biểu tượng Antigravity Delta Ribbon Google.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 19` (`v1.0.0 (Build 19)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 19`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 12c6d1a --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 18 - 2026-11-16
 - **Commit:** `74cfd12`
 - **Mục tiêu thay đổi tóm tắt:** Tái thiết kế toàn diện Dock với kiến trúc **Separated Viewport (Zero-Overlap Guarantee)**: giải quyết triệt để lỗi dock che khuất ô nhập chat, nút gửi tin nhắn, mic và danh sách hội thoại; web container nằm hoàn toàn phía trên dock; dock Liquid Glass Dynamic Island chuẩn iOS thích ứng Dark/Light Mode; bổ sung cơ chế tự động ẩn dock khi mở bàn phím và viên nhộng phục hồi (`restorePill`) khi thu gọn/toàn màn hình.
