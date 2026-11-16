@@ -1479,6 +1479,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     DispatchQueue.main.async {
                         self.handleSettingsTapped()
                     }
+                } else if action == "setDockPosition", let posStr = body["position"] as? String, let pos = DockPosition(rawValue: posStr) {
+                    DispatchQueue.main.async {
+                        self.setDockPosition(pos, animated: true)
+                    }
+                } else if action == "setDockDisplayMode", let modeStr = body["mode"] as? String, let mode = DockDisplayMode(rawValue: modeStr) {
+                    DispatchQueue.main.async {
+                        self.setDockDisplayMode(mode)
+                    }
                 }
             } else if let action = message.body as? String {
                 if action == "openIpaManager" || action == "openDownloadManager" {
@@ -1490,14 +1498,6 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 } else if action == "openSettings" {
                     DispatchQueue.main.async {
                         self.handleSettingsTapped()
-                    }
-                } else if action == "setDockPosition", let posStr = body["position"] as? String, let pos = DockPosition(rawValue: posStr) {
-                    DispatchQueue.main.async {
-                        self.setDockPosition(pos, animated: true)
-                    }
-                } else if action == "setDockDisplayMode", let modeStr = body["mode"] as? String, let mode = DockDisplayMode(rawValue: modeStr) {
-                    DispatchQueue.main.async {
-                        self.setDockDisplayMode(mode)
                     }
                 }
             }
