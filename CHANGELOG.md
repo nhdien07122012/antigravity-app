@@ -4,6 +4,28 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 16 - 2026-11-16
+- **Commit:** `233f965`
+- **Mục tiêu thay đổi tóm tắt:** Thiết kế lại toàn diện Float Dock thành **Dynamic Island Mini/Expanded Capsule 2.0**: mặc định thu gọn thành viên capsule mini góc phải (`[ ⚡ Tên dự án ▴ ]`), hỗ trợ kéo di chuyển tự do (Draggable Pan), chạm để bung mở toàn phần thanh chuyển tab và tự động thu gọn sau khi chọn; đệm cuộn an toàn `contentInset.bottom = 54` và sử dụng `MutationObserver` ẩn triệt để logo dev Antigravity góc trên.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Xây dựng cơ chế 2 trạng thái linh hoạt cho Dock:
+      - **Thu gọn (Mini Pill Mode):** Nằm gọn gàng ở góc dưới phải màn hình (`height: 32pt`, `cornerRadius: 16`), giải phóng hoàn toàn 100% không gian ô gõ chat, phím mic và mũi tên gửi tin nhắn.
+      - **Kéo thả tự do (Draggable Pan Gesture):** Tích hợp `UIPanGestureRecognizer`, cho phép người dùng kéo viên capsule mini đến bất kỳ vị trí mép trái/phải màn hình tuỳ ý.
+      - **Bung mở mượt mà (Spring Animation Expanded Bar):** Chạm vào mini pill để bung mở toàn bộ danh sách tab dự án, các nút `+`, `↻`, `aA` (thu phóng), `⤢` (toàn màn hình), và `⌄` (thu gọn).
+      - **Tự động thu gọn sau khi chuyển tab:** Sau khi chọn tab dự án mới, dock tự động đóng lại thành mini pill để người dùng lập tức có toàn màn hình làm việc.
+    - Bổ sung đệm cuộn nội dung `webView.scrollView.contentInset.bottom = 54` và `scrollIndicatorInsets.bottom = 54` để không bao giờ có dòng chữ hay nút chức năng nào bị che khuất khi cuộn xuống cuối trang.
+    - Cải tiến script dọn dẹp Header với `MutationObserver` liên tục theo dõi và ẩn icon dev logo Antigravity ở góc trên cùng bên trái.
+  - `src/components/FloatingDock.tsx`: Đồng bộ 100% cơ chế Mini/Expanded Dynamic Island sang phiên bản Web (`isExpanded: false/true`), nút mini góc phải chuyển tab nhanh gọn.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 16` (`v1.0.0 (Build 16)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 16`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 233f965 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 15 - 2026-11-16
 - **Commit:** `878b10c`
 - **Mục tiêu thay đổi tóm tắt:** Tối ưu hoá toàn diện giao diện hiển thị: hỗ trợ Dark/Light mode tự động cho Float Dock; hạ thấp sát mép đáy màn hình (36pt) để giải phóng vùng nhập tin nhắn; thêm công cụ điều chỉnh cỡ chữ & thu phóng trang (Zoom 70% - 200%); ghim sát header vào status bar và tự động ẩn logo dev phía trên để mở rộng không gian tối đa.

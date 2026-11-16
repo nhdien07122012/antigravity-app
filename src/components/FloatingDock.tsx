@@ -9,6 +9,8 @@ import {
   ZoomIn,
   ZoomOut,
   Type,
+  ChevronDown,
+  Folder,
 } from 'lucide-react';
 import { RemoteWorkspace } from '../types';
 
@@ -35,8 +37,11 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   isFullscreen,
   onToggleFullscreen,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeId) || workspaces[0];
 
   const applyZoom = (delta: number) => {
     const newZoom = Math.max(70, Math.min(200, zoomLevel + delta));
@@ -62,8 +67,28 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     );
   }
 
+  // State 1: Collapsed Mini Dynamic Island Pill (Docked safely in corner)
+  if (!isExpanded) {
+    return (
+      <div className="fixed bottom-[calc(4px+env(safe-area-inset-bottom,0px))] right-3 z-40 select-none">
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 dark:bg-[#0a0a0f]/85 hover:bg-white dark:hover:bg-black backdrop-blur-2xl border border-black/10 dark:border-white/20 ring-1 ring-black/5 dark:ring-white/10 rounded-full shadow-xl text-xs font-bold text-gray-800 dark:text-white active:scale-95 transition-all"
+        >
+          <span
+            className="w-2 h-2 rounded-full shrink-0 animate-pulse"
+            style={{ backgroundColor: activeWorkspace?.iconColor || '#2563eb' }}
+          />
+          <span className="max-w-[100px] truncate">{activeWorkspace?.name || 'Dự án'}</span>
+          <span className="text-[10px] opacity-60">▴</span>
+        </button>
+      </div>
+    );
+  }
+
+  // State 2: Full Expanded Control Bar
   return (
-    <div className="fixed bottom-[calc(2px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 px-2 flex flex-col items-center pointer-events-none select-none">
+    <div className="fixed bottom-[calc(4px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 px-2 flex flex-col items-center pointer-events-none select-none">
       {/* Zoom Quick Pill (Floating above dock if open) */}
       {showZoomMenu && (
         <div className="mb-1 px-3 py-1 bg-white/90 dark:bg-black/85 backdrop-blur-2xl border border-black/10 dark:border-white/20 rounded-full shadow-xl flex items-center gap-2 pointer-events-auto text-xs font-bold text-gray-800 dark:text-white">
@@ -102,7 +127,10 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             return (
               <div
                 key={ws.id}
-                onClick={() => onSelectWorkspace(ws.id)}
+                onClick={() => {
+                  onSelectWorkspace(ws.id);
+                  setIsExpanded(false); // auto-collapse to leave screen clear
+                }}
                 className={`group flex items-center gap-1.5 px-3 py-1 rounded-full cursor-pointer text-xs font-semibold tracking-wide transition-all shrink-0 ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/35 ring-1 ring-blue-400/40'
@@ -133,7 +161,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
           })}
         </div>
 
-        {/* Right Actions: Add Project, Zoom, Manage, Fullscreen, Settings */}
+        {/* Right Actions: Add Project, Zoom, Fullscreen, Collapse */}
         <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-gray-300/60 dark:border-white/15">
           {/* Add Project via QR */}
           <button
@@ -176,13 +204,13 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
 
-          {/* Settings */}
+          {/* Collapse Button */}
           <button
-            onClick={onOpenSettings}
-            title="Cài đặt hệ thống"
+            onClick={() => setIsExpanded(false)}
+            title="Thu gọn thanh chuyển dự án"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <ChevronDown className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
