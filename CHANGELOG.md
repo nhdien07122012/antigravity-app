@@ -5,7 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 28 - 2026-11-16
-- **Commit:** `4eff50b`
+- **Commit:** `3adc59e`
+- **GitHub Actions Run:** `#43906197821` (success)
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi WKWebView mở và hiển thị file IPA/nén dạng ký tự nhị phân thô (`PK... Payload/Runner.app/...`) bằng cơ chế chặn download an toàn và tự động khôi phục giao diện; Bổ sung tùy biến linh hoạt vị trí thanh Dock (Cạnh dọc bên trái / Cạnh dọc bên phải / Cạnh đáy) và chế độ hiển thị Dock (Luôn hiện / Tự động ẩn kèm mini handle pill mở rộng) trên cả Native iOS và Web UI.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -39,7 +40,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 28`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 4eff50b --no-edit
+  git revert 3adc59e --no-edit
   ```
 
 ---
