@@ -5,7 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 24 - 2026-11-16
-- **Commit:** `0fe8c20`
+- **Commit:** `e3220e3`
+- **GitHub Actions Run:** `#43871765495` (success)
 - **Mục tiêu thay đổi tóm tắt:** Nâng cấp toàn diện Trình Quản Lý Tải Về & Tệp (Safari-Style Download & File Manager): hỗ trợ tải IPA và tệp từ bất kỳ dự án / URL nào; tự động nhận diện và hiển thị hộp thoại xác nhận tải về chuẩn Safari ("Bạn có muốn tải về <tên file> không?"); lưu trữ tệp trong thư mục `Downloads/` hiển thị trực tiếp trong app Tệp (Files) của iOS; giao diện quản lý tệp trực quan với biểu tượng màu, kích thước, ngày tháng, xem nhanh (Quick Look) qua `QLPreviewController`, chia sẻ 1 chạm sang TrollStore / SideStore / AltStore để Sideload, đổi tên, vuốt xóa; hỗ trợ nhập liên kết tải tùy ý từ web hoặc clipboard và cập nhật trạng thái hoạt động trên Dock.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -41,7 +42,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 24`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 0fe8c20 --no-edit
+  git revert e3220e3 --no-edit
   ```
 
 ---
