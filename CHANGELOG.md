@@ -4,6 +4,29 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 12 - 2026-11-16
+- **Commit:** `6287b2d`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi kết nối **Google 403 Forbidden** và lỗi giao diện bị đè lên tai thỏ (Status Bar/Dynamic Island) trên iPhone bằng cách nâng cấp lên **Native Multi-Instance `WKWebView` Engine** trực tiếp trong `AppDelegate.swift`, tích hợp quét QR Native AVFoundation 60fps và căn chỉnh AutoLayout `safeAreaLayoutGuide`.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`: Triển khai kiến trúc Native Container trực tiếp bằng Swift & UIKit:
+    - Mỗi dự án được quản lý bởi một đối tượng `WKWebView` độc lập cấp Top-Level Document (`Sec-Fetch-Dest: document`), hoàn toàn vượt qua cơ chế chặn `X-Frame-Options: SAMEORIGIN/DENY` và 403 của Google.
+    - Chia sẻ cookie và phiên đăng nhập Google trên tất cả các tab qua `WKWebsiteDataStore.default()`.
+    - Thiết lập `customUserAgent` chuẩn Mobile Safari (`Version/17.5 Mobile/15E148 Safari/604.1`) đảm bảo Google Accounts và Antigravity Remote xác thực mượt mà.
+    - Cơ chế **Zero-Reload Keep-Alive**: Khi đổi tab dự án, chỉ thay đổi `isHidden = false/true`, chuyển đổi tức thì 0ms, không làm đứt kết nối WebSocket hay tải lại dữ liệu.
+    - Thanh điều hướng nổi Native Glassmorphism (`UIVisualEffectView`) căn chỉnh chuẩn xác theo `safeAreaLayoutGuide.bottomAnchor`, không bao giờ đè lên Home Indicator.
+    - Tích hợp trình quét mã QR Native bằng `AVCaptureSession` (AVFoundation) mượt mà 60fps, hỗ trợ nút dán link từ Clipboard và phản hồi rung `UIImpactFeedbackGenerator`.
+  - `ios/App/App/Info.plist`: Bổ sung khoá cấp quyền Camera `NSCameraUsageDescription` phục vụ quét mã QR pairing.
+  - `src/components/KeepAliveContainer.tsx`: Căn chỉnh vị trí các nút điều khiển top toolbar xuống dưới tai thỏ với `top-[calc(14px+env(safe-area-inset-top,24px))]`.
+  - `src/components/FloatingDock.tsx`: Đệm an toàn phía dưới với `bottom-[calc(10px+env(safe-area-inset-bottom,0px))]`.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 12` (`v1.0.0 (Build 12)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 12`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 6287b2d --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 11 - 2026-11-16
 - **Commit:** `9bfa618`
 - **Mục tiêu thay đổi tóm tắt:** Chuyển đổi toàn diện dự án (Strategic Pivot) thành **Bộ Chứa Đa Dự Án Native Cho Google Antigravity Remote** trên iOS (.ipa); tích hợp Camera QR Scanner & Link Importer; áp dụng cơ chế Zero-Reload Keep-Alive Frame Engine duy trì đồng thời nhiều phiên dự án trong RAM không cần tải lại và không ngắt kết nối WebSocket/WebRTC; dọn sạch toàn bộ mã nguồn mô phỏng cũ.

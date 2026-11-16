@@ -42,7 +42,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
       <button
         onClick={onToggleFullscreen}
         title="Hiển thị thanh chuyển dự án"
-        className="fixed bottom-4 right-4 z-40 p-3 bg-black/75 hover:bg-black text-white rounded-full shadow-2xl backdrop-blur-md border border-white/20 active:scale-95 transition"
+        className="fixed bottom-[calc(14px+env(safe-area-inset-bottom,0px))] right-4 z-40 p-3 bg-black/75 hover:bg-black text-white rounded-full shadow-2xl backdrop-blur-md border border-white/20 active:scale-95 transition"
       >
         <Minimize2 className="w-5 h-5" />
       </button>
@@ -50,7 +50,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   }
 
   return (
-    <div className="fixed bottom-3 left-0 right-0 z-40 px-3 flex flex-col items-center pointer-events-none select-none">
+    <div className="fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 px-3 flex flex-col items-center pointer-events-none select-none">
       {/* Main Floating Capsule */}
       <div className="w-full max-w-lg bg-white/95 backdrop-blur-xl border border-gray-200/90 rounded-2xl shadow-2xl p-1.5 flex items-center justify-between gap-1.5 pointer-events-auto">
         {/* Left: Tab Switcher Scroll Container */}

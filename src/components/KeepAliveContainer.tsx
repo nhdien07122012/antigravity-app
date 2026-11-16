@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { ExternalLink, RefreshCw, Sparkles, ShieldAlert } from 'lucide-react';
 import { RemoteWorkspace } from '../types';
 
 interface KeepAliveContainerProps {
@@ -64,12 +64,12 @@ export const KeepAliveContainer: React.FC<KeepAliveContainerProps> = ({
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-downloads"
             />
 
-            {/* In case browser blocks iframe security (X-Frame-Options fallback banner) */}
-            <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+            {/* Top Toolbar: Placed strictly below iPhone notch / status bar with safe-area */}
+            <div className="absolute top-[calc(14px+env(safe-area-inset-top,24px))] right-4 z-20 flex items-center gap-2 pointer-events-auto">
               <button
                 onClick={() => handleReloadWorkspace(ws.id)}
                 title="Tải lại tab này"
-                className="p-2 bg-white/90 hover:bg-white text-gray-700 hover:text-black rounded-xl shadow-md border border-gray-200 backdrop-blur-sm transition active:scale-90"
+                className="p-2.5 bg-white/95 hover:bg-white text-gray-700 hover:text-black rounded-xl shadow-lg border border-gray-200 backdrop-blur-md transition active:scale-90"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -77,10 +77,10 @@ export const KeepAliveContainer: React.FC<KeepAliveContainerProps> = ({
               <button
                 onClick={() => window.open(ws.url, '_blank')}
                 title="Mở toàn màn hình ngoài Safari"
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-blue-600 rounded-xl shadow-md border border-gray-200 text-xs font-bold backdrop-blur-sm transition active:scale-90"
+                className="flex items-center gap-1.5 px-3 py-2.5 bg-white/95 hover:bg-white text-blue-600 rounded-xl shadow-lg border border-gray-200 text-xs font-bold backdrop-blur-md transition active:scale-90"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mở Ngoài</span>
+                <span>Mở Safari</span>
               </button>
             </div>
           </div>
