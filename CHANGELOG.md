@@ -4,6 +4,48 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 24 - 2026-11-16
+- **Commit:** `0fe8c20`
+- **Mục tiêu thay đổi tóm tắt:** Nâng cấp toàn diện Trình Quản Lý Tải Về & Tệp (Safari-Style Download & File Manager): hỗ trợ tải IPA và tệp từ bất kỳ dự án / URL nào; tự động nhận diện và hiển thị hộp thoại xác nhận tải về chuẩn Safari ("Bạn có muốn tải về <tên file> không?"); lưu trữ tệp trong thư mục `Downloads/` hiển thị trực tiếp trong app Tệp (Files) của iOS; giao diện quản lý tệp trực quan với biểu tượng màu, kích thước, ngày tháng, xem nhanh (Quick Look) qua `QLPreviewController`, chia sẻ 1 chạm sang TrollStore / SideStore / AltStore để Sideload, đổi tên, vuốt xóa; hỗ trợ nhập liên kết tải tùy ý từ web hoặc clipboard và cập nhật trạng thái hoạt động trên Dock.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Thêm `import QuickLook` hỗ trợ xem trước tệp nội tuyến bằng `QLPreviewController`.
+    - Tạo `struct DownloadItem: Codable`: Lưu thông tin tệp tải về (`id`, `url`, `filename`, `fileSize`, `downloadDate`, `isIpa`).
+    - Tạo `class DownloadManager: NSObject, URLSessionDownloadDelegate`:
+      - Quản lý tải ngầm nền nhiều tệp cùng lúc với `activeDownloads` và `URLSessionDownloadTask`.
+      - Tự động tạo và quản lý thư mục `Documents/Downloads` (hiển thị trong app Tệp của iOS).
+      - Quét toàn bộ thư mục `Downloads` và `Documents` để tự động lập danh sách tệp có sẵn trong máy.
+      - Hỗ trợ đổi tên tệp, xóa từng tệp, xóa toàn bộ danh sách, hủy tiến trình tải đang chạy.
+      - Phát thông báo tiến trình phần trăm (%) và dung lượng tải thời gian thực.
+    - Tạo `class SafariDownloadManagerViewController`:
+      - Thiết kế giao diện danh sách thẻ Inset Grouped chuẩn iOS.
+      - Header gồm 3 nút hành động tiện ích: `+ Tải Tệp / IPA Từ Link Mới`, `🚀 Tải Antigravity IPA Mới Nhất`, `📂 Mở Trong Ứng Dụng Tệp (Files)`.
+      - Phân mục Section 0: `ĐANG TẢI VỀ` (kèm thanh `UIProgressView` và nút hủy `X`).
+      - Phân mục Section 1: `TỆP ĐÃ TẢI VỀ` (hiển thị icon phân loại màu, dung lượng, ngày tải, nút chia sẻ nhanh).
+      - Tương tác chạm vào hàng:
+        - Tệp `.ipa`: Mở Action Sheet gồm `🚀 Chia Sẻ Để Sideload (TrollStore / SideStore / AltStore / Tệp)`, `📂 Mở Trong Tệp`, `✏️ Đổi Tên Tệp`, `📋 Sao Chép Tên Tệp`, `🗑️ Xóa Tệp`.
+        - Tệp khác (`.pdf`, `.zip`, `.png`,...): Mở Action Sheet với tùy chọn xem nhanh `👁️ Quick Look` qua `QLPreviewController`.
+      - Hỗ trợ thao tác vuốt: Vuốt phải để Chia Sẻ, vuốt trái để Xóa tệp.
+      - Nút `Dọn Dẹp` trên thanh tiêu đề để xóa toàn bộ tệp đã tải khi cần giải phóng dung lượng.
+    - Cải tiến `isDownloadableUrl` và `WKNavigationDelegate`:
+      - Tự động phát hiện mọi liên kết tải tệp (`.ipa`, `.zip`, `.deb`, `.pdf`, `.dmg`, `.pkg`, `/releases/download/`, `Content-Disposition: attachment`, `application/octet-stream`).
+      - Hiển thị hộp thoại xác nhận tải về kinh điển của Safari: `"Bạn có muốn tải về \"<tên file>\" không?" [Hủy] [Tải Về]`.
+      - Bấm Tải Về sẽ bắt đầu tải ngầm ngay lập tức mà không làm gián đoạn trang web.
+    - Đồng bộ Dock Download Badge: Icon tải về trên Dock tự động đổi sang `arrow.down.circle.fill` màu xanh nổi bật khi có tiến trình tải đang chạy, và phục hồi khi tải xong.
+  - `src/components/IPAManagerModal.tsx`:
+    - Nâng cấp thành giao diện 2 Tab:
+      - Tab 1: `📦 Bản Cài Ứng Dụng` (Tải bản dựng Antigravity Mobile IPA mới nhất từ GitHub Releases).
+      - Tab 2: `🌐 Tải IPA Dự Án Khác`: Nhập hoặc dán URL bất kỳ từ clipboard, nhập tên file tùy chọn và bấm tải về bằng Safari Manager.
+    - Thêm nút mở trực tiếp Trình quản lý tệp tải về (`openDownloadManager`).
+  - `src/version.ts`: Nâng cấp lên `Build 24` (`v1.0.0 (Build 24)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 24`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 0fe8c20 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 23 - 2026-11-16
 - **Commit:** `2c55818`
 - **GitHub Actions Run:** `#43866818969` (success)

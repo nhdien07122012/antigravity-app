@@ -1,6 +1,7 @@
 import UIKit
 import WebKit
 import AVFoundation
+import QuickLook
 
 // MARK: - Data Models
 struct RemoteWorkspace: Codable {
@@ -159,6 +160,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         setupLayout()
         updateDockTheme()
         loadWorkspaces()
+
+        DownloadManager.shared.onActiveCountChanged = { [weak self] count in
+            DispatchQueue.main.async {
+                self?.updateDockDownloadBadge(activeCount: count)
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -613,7 +620,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             self.handleReloadActiveTab()
         }))
 
-        sheet.addAction(UIAlertAction(title: "📦 Quản lý & Tải bản IPA (Sideload)", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "📥 Trình Quản Lý Tải Về & Tệp (Safari Style)", style: .default, handler: { _ in
             self.handleIpaManagerTapped()
         }))
 
@@ -635,6 +642,17 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         }
 
         present(sheet, animated: true)
+    }
+
+    private func updateDockDownloadBadge(activeCount: Int) {
+        if activeCount > 0 {
+            ipaButton.setImage(UIImage(systemName: "arrow.down.circle.fill"), for: .normal)
+            ipaButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
+        } else {
+            ipaButton.setImage(UIImage(systemName: "arrow.down.circle"), for: .normal)
+            let isDark = traitCollection.userInterfaceStyle == .dark
+            ipaButton.tintColor = (isDark ? UIColor.white : UIColor.label).withAlphaComponent(0.85)
+        }
     }
 
     // MARK: - IPA Download & Sideload Manager
@@ -766,62 +784,123 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "antigravityNative" {
             if let body = message.body as? [String: Any], let action = body["action"] as? String {
-                if action == "openIpaManager" {
+                if action == "openIpaManager" || action == "openDownloadManager" {
+                    handleIpaManagerTapped()
+                } else if action == "downloadUrl", let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
+                    let filename = body["filename"] as? String
+                    DownloadManager.shared.startDownload(url: url, customFilename: filename)
                     handleIpaManagerTapped()
                 }
-            } else if let action = message.body as? String, action == "openIpaManager" {
-                handleIpaManagerTapped()
+            } else if let action = message.body as? String {
+                if action == "openIpaManager" || action == "openDownloadManager" {
+                    handleIpaManagerTapped()
+                }
             }
         }
     }
 
-    private func isIpaDownloadUrl(_ url: URL?) -> Bool {
-        guard let url = url else { return false }
+    private func isDownloadableUrl(_ url: URL?) -> (isDownload: Bool, suggestedFilename: String) {
+        guard let url = url else { return (false, "") }
         let str = url.absoluteString.lowercased()
-        if str.hasSuffix(".ipa") || str.contains(".ipa?") {
-            return true
+
+        let extensions = [".ipa", ".zip", ".deb", ".tar", ".gz", ".tgz", ".7z", ".rar", ".dmg", ".pkg", ".pdf", ".apk", ".dylib", ".mobileconfig"]
+        for ext in extensions {
+            if str.hasSuffix(ext) || str.contains("\(ext)?") || str.contains("\(ext)&") {
+                let name = url.lastPathComponent.isEmpty ? "file\(ext)" : url.lastPathComponent
+                return (true, name)
+            }
         }
-        if str.contains("/releases/download/") && str.contains(".ipa") {
-            return true
+
+        if str.contains("/releases/download/") {
+            let name = url.lastPathComponent.isEmpty ? "release_file" : url.lastPathComponent
+            return (true, name)
         }
-        if str.contains("antigravitymobile.ipa") {
-            return true
-        }
+
         if url.scheme == "antigravity" && url.host == "ipa" {
-            return true
+            return (true, "AntigravityMobile.ipa")
         }
-        return false
+
+        return (false, "")
+    }
+
+    private func promptSafariDownload(url: URL, suggestedFilename: String) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let cleanName = (suggestedFilename.removingPercentEncoding ?? suggestedFilename).trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = cleanName.isEmpty ? "tep_tai_ve" : cleanName
+
+        let alert = UIAlertController(
+            title: "Tải Tệp Về",
+            message: "Bạn có muốn tải về \"\(displayName)\" không?",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+
+        alert.addAction(UIAlertAction(title: "Tải Về", style: .default, handler: { _ in
+            DownloadManager.shared.startDownload(url: url, customFilename: displayName)
+            self.showDownloadStartedToast(filename: displayName)
+        }))
+
+        present(alert, animated: true)
+    }
+
+    private func showDownloadStartedToast(filename: String) {
+        let toast = UIAlertController(
+            title: "Đang Bắt Đầu Tải 📥",
+            message: "Tệp \"\(filename)\" đang được tải ngầm. Bạn có thể mở Trình Quản Lý Tải Về trên Dock để xem tiến trình.",
+            preferredStyle: .actionSheet
+        )
+        toast.addAction(UIAlertAction(title: "Mở Trình Quản Lý Tải Về", style: .default, handler: { _ in
+            self.handleIpaManagerTapped()
+        }))
+        toast.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        if let popover = toast.popoverPresentationController {
+            popover.sourceView = dockContainerView
+            popover.sourceRect = dockContainerView.bounds
+        }
+        present(toast, animated: true)
     }
 
     // MARK: - WKNavigationDelegate & WKUIDelegate
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        if let url = navigationAction.request.url, isIpaDownloadUrl(url) {
-            decisionHandler(.cancel)
-            DispatchQueue.main.async {
-                self.handleIpaManagerTapped()
+        if let url = navigationAction.request.url {
+            let check = isDownloadableUrl(url)
+            if check.isDownload {
+                decisionHandler(.cancel)
+                DispatchQueue.main.async {
+                    self.promptSafariDownload(url: url, suggestedFilename: check.suggestedFilename)
+                }
+                return
             }
-            return
         }
         decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        if let url = navigationResponse.response.url, isIpaDownloadUrl(url) {
-            decisionHandler(.cancel)
-            DispatchQueue.main.async {
-                self.handleIpaManagerTapped()
+        if let url = navigationResponse.response.url {
+            let check = isDownloadableUrl(url)
+            if check.isDownload {
+                decisionHandler(.cancel)
+                let name = navigationResponse.response.suggestedFilename ?? check.suggestedFilename
+                DispatchQueue.main.async {
+                    self.promptSafariDownload(url: url, suggestedFilename: name)
+                }
+                return
             }
-            return
         }
 
         let mime = navigationResponse.response.mimeType?.lowercased() ?? ""
-        let filename = navigationResponse.response.suggestedFilename?.lowercased() ?? ""
-        if mime == "application/x-itunes-ipa" || (mime == "application/octet-stream" && filename.hasSuffix(".ipa")) {
-            decisionHandler(.cancel)
-            DispatchQueue.main.async {
-                self.handleIpaManagerTapped()
+        let filename = navigationResponse.response.suggestedFilename ?? "file"
+        if mime == "application/x-itunes-ipa" || mime == "application/octet-stream" || mime == "application/zip" || mime == "application/x-debian-package" {
+            if filename.lowercased().hasSuffix(".ipa") || filename.lowercased().hasSuffix(".zip") || filename.lowercased().hasSuffix(".deb") || mime == "application/x-itunes-ipa" {
+                decisionHandler(.cancel)
+                if let url = navigationResponse.response.url {
+                    DispatchQueue.main.async {
+                        self.promptSafariDownload(url: url, suggestedFilename: filename)
+                    }
+                }
+                return
             }
-            return
         }
 
         if let httpResponse = navigationResponse.response as? HTTPURLResponse {
@@ -850,11 +929,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, isIpaDownloadUrl(url) {
-            DispatchQueue.main.async {
-                self.handleIpaManagerTapped()
+        if let url = navigationAction.request.url {
+            let check = isDownloadableUrl(url)
+            if check.isDownload {
+                DispatchQueue.main.async {
+                    self.promptSafariDownload(url: url, suggestedFilename: check.suggestedFilename)
+                }
+                return nil
             }
-            return nil
         }
         if navigationAction.targetFrame == nil {
             webView.load(navigationAction.request)
@@ -1082,484 +1164,846 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
     }
 }
 
-// MARK: - Native IPA Download & Sideload Manager View Controller
-class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
+// MARK: - Safari-Style Download Manager Helper Extensions
+extension Int64 {
+    var formattedFileSize: String {
+        guard self > 0 else { return "0 KB" }
+        let bcf = ByteCountFormatter()
+        bcf.allowedUnits = [.useAll]
+        bcf.countStyle = .file
+        return bcf.string(fromByteCount: self)
+    }
+}
 
-    private let releaseApiUrl = "https://api.github.com/repos/nhdien07122012/antigravity-app/releases/tags/latest"
-    private let directIpaUrl = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/download/latest/AntigravityMobile.ipa")!
+extension Date {
+    var relativeDisplay: String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "vi_VN")
+        if Calendar.current.isDateInToday(self) {
+            df.dateFormat = "'Hôm nay,' HH:mm"
+        } else if Calendar.current.isDateInYesterday(self) {
+            df.dateFormat = "'Hôm qua,' HH:mm"
+        } else {
+            df.dateFormat = "dd/MM/yyyy HH:mm"
+        }
+        return df.string(from: self)
+    }
+}
 
-    private var downloadTask: URLSessionDownloadTask?
+// MARK: - Download Item Model
+struct DownloadItem: Codable {
+    var id: String
+    var url: String
+    var filename: String
+    var fileSize: Int64
+    var downloadDate: Date
+    var isIpa: Bool {
+        return filename.lowercased().hasSuffix(".ipa")
+    }
+}
+
+// MARK: - Safari-Style Download Manager Service (Singleton)
+class DownloadManager: NSObject, URLSessionDownloadDelegate {
+    static let shared = DownloadManager()
+
+    private let keyDownloads = "ag_downloaded_items_v3"
+    private(set) var items: [DownloadItem] = []
+
+    struct ActiveDownload {
+        var id: String
+        var url: URL
+        var filename: String
+        var task: URLSessionDownloadTask
+        var progress: Float
+        var bytesWritten: Int64
+        var totalBytesExpected: Int64
+    }
+
+    private(set) var activeDownloads: [String: ActiveDownload] = [:]
+
+    var onDownloadsUpdated: (() -> Void)?
+    var onProgressUpdated: ((String, Float, Int64, Int64) -> Void)?
+    var onActiveCountChanged: ((Int) -> Void)?
+
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         return URLSession(configuration: config, delegate: self, delegateQueue: .main)
     }()
 
-    private let scrollView = UIScrollView()
-    private let contentView = UIView()
-
-    // Header Badge
-    private let headerIcon = UIImageView()
-    private let titleLabel = UILabel()
-    private let subtitleLabel = UILabel()
-
-    // Info Card
-    private let infoCard = UIView()
-    private let versionTitleLabel = UILabel()
-    private let currentVersionLabel = UILabel()
-    private let releaseInfoLabel = UILabel()
-
-    // Status & Progress Card
-    private let statusCard = UIView()
-    private let statusLabel = UILabel()
-    private let progressView = UIProgressView(progressViewStyle: .default)
-    private let progressLabel = UILabel()
-
-    // Action Buttons
-    private let downloadButton = UIButton(type: .system)
-    private let shareButton = UIButton(type: .system)
-    private let safariButton = UIButton(type: .system)
-    private let copyLinkButton = UIButton(type: .system)
-    private let githubButton = UIButton(type: .system)
-    private let deleteButton = UIButton(type: .system)
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        title = "Quản Lý Bản Cài IPA"
-        view.backgroundColor = .systemGroupedBackground
-
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Đóng",
-            style: .done,
-            target: self,
-            action: #selector(handleClose)
-        )
-
-        setupUI()
-        checkLocalIpa()
-        fetchReleaseInfo()
-    }
-
-    private func getLocalIpaUrl() -> URL {
+    var downloadsDirectory: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return docs.appendingPathComponent("AntigravityMobile.ipa")
+        let dir = docs.appendingPathComponent("Downloads", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
+        }
+        return dir
     }
 
-    private func setupUI() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-
-        // Header Icon
-        headerIcon.translatesAutoresizingMaskIntoConstraints = false
-        headerIcon.image = UIImage(systemName: "arrow.down.circle.fill")
-        headerIcon.tintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
-        headerIcon.contentMode = .scaleAspectFit
-        contentView.addSubview(headerIcon)
-
-        // Title
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "Antigravity Mobile IPA"
-        titleLabel.font = UIFont.systemFont(ofSize: 20, weight: .bold)
-        titleLabel.textColor = .label
-        titleLabel.textAlignment = .center
-        contentView.addSubview(titleLabel)
-
-        // Subtitle
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.text = "Tải bản dựng mới nhất từ GitHub và chia sẻ sang SideStore, TrollStore, AltStore hoặc Tệp để Sideload trực tiếp."
-        subtitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
-        subtitleLabel.textColor = .secondaryLabel
-        subtitleLabel.textAlignment = .center
-        subtitleLabel.numberOfLines = 0
-        contentView.addSubview(subtitleLabel)
-
-        // Info Card
-        setupCardView(infoCard)
-        contentView.addSubview(infoCard)
-
-        versionTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        versionTitleLabel.text = "THÔNG TIN BẢN DỰNG"
-        versionTitleLabel.font = UIFont.systemFont(ofSize: 11, weight: .bold)
-        versionTitleLabel.textColor = .secondaryLabel
-        infoCard.addSubview(versionTitleLabel)
-
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "22"
-        currentVersionLabel.translatesAutoresizingMaskIntoConstraints = false
-        currentVersionLabel.text = "• Đang chạy: v\(appVersion) (Build \(buildNum))"
-        currentVersionLabel.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
-        currentVersionLabel.textColor = .label
-        infoCard.addSubview(currentVersionLabel)
-
-        releaseInfoLabel.translatesAutoresizingMaskIntoConstraints = false
-        releaseInfoLabel.text = "• Bản phát hành trên GitHub: Đang kiểm tra..."
-        releaseInfoLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
-        releaseInfoLabel.textColor = .secondaryLabel
-        releaseInfoLabel.numberOfLines = 0
-        infoCard.addSubview(releaseInfoLabel)
-
-        // Status & Progress Card
-        setupCardView(statusCard)
-        contentView.addSubview(statusCard)
-
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.text = "Kiểm tra tệp trong máy..."
-        statusLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        statusLabel.textColor = .label
-        statusLabel.numberOfLines = 0
-        statusCard.addSubview(statusLabel)
-
-        progressView.translatesAutoresizingMaskIntoConstraints = false
-        progressView.progressTintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
-        progressView.trackTintColor = UIColor.systemGray5
-        progressView.layer.cornerRadius = 3
-        progressView.clipsToBounds = true
-        progressView.isHidden = true
-        statusCard.addSubview(progressView)
-
-        progressLabel.translatesAutoresizingMaskIntoConstraints = false
-        progressLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
-        progressLabel.textColor = .secondaryLabel
-        progressLabel.textAlignment = .center
-        progressLabel.isHidden = true
-        statusCard.addSubview(progressLabel)
-
-        // Buttons
-        setupActionButton(downloadButton, title: " 📥 Tải File IPA Vào Ứng Dụng", bgColor: UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0), textColor: .white, action: #selector(handleDownloadIpa))
-        contentView.addSubview(downloadButton)
-
-        setupActionButton(shareButton, title: " 🚀 Chia Sẻ Để Sideload (TrollStore / SideStore)", bgColor: UIColor.systemGreen, textColor: .white, action: #selector(handleShareIpa))
-        contentView.addSubview(shareButton)
-
-        setupActionButton(safariButton, title: " 🌐 Mở Tải Bằng Trình Duyệt Safari", bgColor: UIColor(red: 0.10, green: 0.55, blue: 0.95, alpha: 1.0), textColor: .white, action: #selector(handleOpenSafari))
-        contentView.addSubview(safariButton)
-
-        setupActionButton(copyLinkButton, title: " 📋 Sao Chép Link Tải Trực Tiếp", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleCopyLink))
-        copyLinkButton.layer.borderWidth = 1
-        copyLinkButton.layer.borderColor = UIColor.separator.cgColor
-        contentView.addSubview(copyLinkButton)
-
-        setupActionButton(githubButton, title: " 🔗 Xem Trang GitHub Releases", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleOpenGitHub))
-        githubButton.layer.borderWidth = 1
-        githubButton.layer.borderColor = UIColor.separator.cgColor
-        contentView.addSubview(githubButton)
-
-        setupActionButton(deleteButton, title: " 🗑️ Xóa File IPA Khỏi Bộ Nhớ Máy", bgColor: UIColor.systemRed.withAlphaComponent(0.12), textColor: .systemRed, action: #selector(handleDeleteIpa))
-        deleteButton.isHidden = true
-        contentView.addSubview(deleteButton)
-
-        // Constraints
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-
-            headerIcon.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            headerIcon.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            headerIcon.widthAnchor.constraint(equalToConstant: 48),
-            headerIcon.heightAnchor.constraint(equalToConstant: 48),
-
-            titleLabel.topAnchor.constraint(equalTo: headerIcon.bottomAnchor, constant: 10),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-
-            infoCard.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 18),
-            infoCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            infoCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-
-            versionTitleLabel.topAnchor.constraint(equalTo: infoCard.topAnchor, constant: 12),
-            versionTitleLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
-            versionTitleLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
-
-            currentVersionLabel.topAnchor.constraint(equalTo: versionTitleLabel.bottomAnchor, constant: 6),
-            currentVersionLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
-            currentVersionLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
-
-            releaseInfoLabel.topAnchor.constraint(equalTo: currentVersionLabel.bottomAnchor, constant: 6),
-            releaseInfoLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
-            releaseInfoLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
-            releaseInfoLabel.bottomAnchor.constraint(equalTo: infoCard.bottomAnchor, constant: -12),
-
-            statusCard.topAnchor.constraint(equalTo: infoCard.bottomAnchor, constant: 14),
-            statusCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            statusCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-
-            statusLabel.topAnchor.constraint(equalTo: statusCard.topAnchor, constant: 12),
-            statusLabel.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
-            statusLabel.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
-
-            progressView.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 10),
-            progressView.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
-            progressView.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
-            progressView.heightAnchor.constraint(equalToConstant: 6),
-
-            progressLabel.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: 6),
-            progressLabel.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
-            progressLabel.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
-            progressLabel.bottomAnchor.constraint(equalTo: statusCard.bottomAnchor, constant: -12),
-
-            downloadButton.topAnchor.constraint(equalTo: statusCard.bottomAnchor, constant: 18),
-            downloadButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            downloadButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            downloadButton.heightAnchor.constraint(equalToConstant: 48),
-
-            shareButton.topAnchor.constraint(equalTo: downloadButton.bottomAnchor, constant: 10),
-            shareButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            shareButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            shareButton.heightAnchor.constraint(equalToConstant: 48),
-
-            safariButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 10),
-            safariButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            safariButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            safariButton.heightAnchor.constraint(equalToConstant: 46),
-
-            copyLinkButton.topAnchor.constraint(equalTo: safariButton.bottomAnchor, constant: 10),
-            copyLinkButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            copyLinkButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            copyLinkButton.heightAnchor.constraint(equalToConstant: 44),
-
-            githubButton.topAnchor.constraint(equalTo: copyLinkButton.bottomAnchor, constant: 10),
-            githubButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            githubButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            githubButton.heightAnchor.constraint(equalToConstant: 44),
-
-            deleteButton.topAnchor.constraint(equalTo: githubButton.bottomAnchor, constant: 10),
-            deleteButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            deleteButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            deleteButton.heightAnchor.constraint(equalToConstant: 40),
-            deleteButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
-        ])
+    override init() {
+        super.init()
+        loadItems()
+        scanDirectory()
     }
 
-    private func setupCardView(_ card: UIView) {
-        card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .secondarySystemGroupedBackground
-        card.layer.cornerRadius = 14
-        card.layer.cornerCurve = .continuous
-        card.layer.borderWidth = 0.5
-        card.layer.borderColor = UIColor.separator.cgColor
+    func loadItems() {
+        if let data = UserDefaults.standard.data(forKey: keyDownloads),
+           let list = try? JSONDecoder().decode([DownloadItem].self, from: data) {
+            self.items = list
+        }
     }
 
-    private func setupActionButton(_ button: UIButton, title: String, bgColor: UIColor, textColor: UIColor, action: Selector) {
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle(title, for: .normal)
-        button.setTitleColor(textColor, for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .bold)
-        button.backgroundColor = bgColor
-        button.layer.cornerRadius = 24
-        button.layer.cornerCurve = .continuous
-        button.addTarget(self, action: action, for: .touchUpInside)
+    func saveItems() {
+        if let data = try? JSONEncoder().encode(items) {
+            UserDefaults.standard.set(data, forKey: keyDownloads)
+        }
     }
 
-    private func checkLocalIpa() {
-        let url = getLocalIpaUrl()
-        if FileManager.default.fileExists(atPath: url.path) {
-            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-               let size = attrs[.size] as? Int64 {
-                let mb = Double(size) / 1024.0 / 1024.0
-                statusLabel.text = String(format: "✅ Đã có sẵn file tải về trong máy (%.2f MB)\nSẵn sàng chia sẻ sang TrollStore / SideStore / Files.", mb)
-                statusLabel.textColor = .systemGreen
-                shareButton.isEnabled = true
-                shareButton.alpha = 1.0
-                deleteButton.isHidden = false
-                downloadButton.setTitle(" 🔄 Tải Lại Bản Mới Nhất", for: .normal)
-                return
+    func scanDirectory() {
+        let fm = FileManager.default
+        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        var foundItems: [DownloadItem] = []
+        var existingNames = Set<String>()
+
+        // 1. Scan Downloads/ directory
+        if let contents = try? fm.contentsOfDirectory(at: downloadsDirectory, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) {
+            for fileUrl in contents {
+                let name = fileUrl.lastPathComponent
+                if name.hasPrefix(".") { continue }
+                existingNames.insert(name)
+                let attrs = try? fm.attributesOfItem(atPath: fileUrl.path)
+                let size = (attrs?[.size] as? Int64) ?? 0
+                let date = (attrs?[.modificationDate] as? Date) ?? Date()
+
+                if let existing = items.first(where: { $0.filename == name }) {
+                    foundItems.append(DownloadItem(id: existing.id, url: existing.url, filename: name, fileSize: size > 0 ? size : existing.fileSize, downloadDate: existing.downloadDate))
+                } else {
+                    foundItems.append(DownloadItem(id: UUID().uuidString, url: "", filename: name, fileSize: size, downloadDate: date))
+                }
             }
         }
-        statusLabel.text = "Chưa có file trong máy. Chạm 'Tải File IPA Vào Ứng Dụng' để bắt đầu."
-        statusLabel.textColor = .secondaryLabel
-        shareButton.isEnabled = false
-        shareButton.alpha = 0.5
-        deleteButton.isHidden = true
-        downloadButton.setTitle(" 📥 Tải File IPA Vào Ứng Dụng", for: .normal)
-    }
 
-    private func fetchReleaseInfo() {
-        guard let url = URL(string: releaseApiUrl) else { return }
-        var req = URLRequest(url: url)
-        req.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        req.addValue("AntigravityMobile-App", forHTTPHeaderField: "User-Agent")
-
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-
-            let tagName = json["tag_name"] as? String ?? "latest"
-            var assetSizeStr = "1.38 MB"
-            var publishedStr = ""
-
-            if let assets = json["assets"] as? [[String: Any]],
-               let firstAsset = assets.first(where: { ($0["name"] as? String)?.hasSuffix(".ipa") == true }) ?? assets.first {
-                if let sizeBytes = firstAsset["size"] as? Int64 {
-                    let mb = Double(sizeBytes) / 1024.0 / 1024.0
-                    assetSizeStr = String(format: "%.2f MB", mb)
-                }
-                if let updatedAt = firstAsset["updated_at"] as? String {
-                    publishedStr = String(updatedAt.prefix(10))
+        // 2. Scan root Documents/ (e.g. AntigravityMobile.ipa from previous builds)
+        if let rootContents = try? fm.contentsOfDirectory(at: docs, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) {
+            for fileUrl in rootContents {
+                let name = fileUrl.lastPathComponent
+                if name.hasPrefix(".") || name == "Downloads" { continue }
+                if name.lowercased().hasSuffix(".ipa") || name.lowercased().hasSuffix(".zip") {
+                    if !existingNames.contains(name) {
+                        existingNames.insert(name)
+                        let attrs = try? fm.attributesOfItem(atPath: fileUrl.path)
+                        let size = (attrs?[.size] as? Int64) ?? 0
+                        let date = (attrs?[.modificationDate] as? Date) ?? Date()
+                        foundItems.append(DownloadItem(id: UUID().uuidString, url: "", filename: name, fileSize: size, downloadDate: date))
+                    }
                 }
             }
+        }
 
-            DispatchQueue.main.async {
-                self?.releaseInfoLabel.text = "• Bản mới nhất: AntigravityMobile.ipa (\(assetSizeStr))\n• Tag: \(tagName) • Cập nhật: \(publishedStr)"
+        foundItems.sort(by: { $0.downloadDate > $1.downloadDate })
+        self.items = foundItems
+        saveItems()
+        onDownloadsUpdated?()
+    }
+
+    func getFileUrl(for item: DownloadItem) -> URL {
+        let inDownloads = downloadsDirectory.appendingPathComponent(item.filename)
+        if FileManager.default.fileExists(atPath: inDownloads.path) {
+            return inDownloads
+        }
+        let inDocs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(item.filename)
+        if FileManager.default.fileExists(atPath: inDocs.path) {
+            return inDocs
+        }
+        return inDownloads
+    }
+
+    func startDownload(url: URL, customFilename: String? = nil) {
+        let id = UUID().uuidString
+        var rawName = customFilename ?? url.lastPathComponent
+        if rawName.isEmpty || rawName == "/" {
+            rawName = "file_\(Int(Date().timeIntervalSince1970))"
+            if url.absoluteString.lowercased().contains(".ipa") {
+                rawName += ".ipa"
             }
-        }.resume()
-    }
+        }
+        if let qIdx = rawName.firstIndex(of: "?") {
+            rawName = String(rawName[..<qIdx])
+        }
 
-    @objc private func handleClose() {
-        downloadTask?.cancel()
-        dismiss(animated: true)
-    }
-
-    @objc private func handleDownloadIpa() {
-        guard downloadTask == nil else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-
-        downloadButton.isEnabled = false
-        downloadButton.alpha = 0.6
-        progressView.isHidden = false
-        progressLabel.isHidden = false
-        progressView.progress = 0
-        progressLabel.text = "Đang kết nối GitHub..."
-        statusLabel.text = "⏳ Đang tải file AntigravityMobile.ipa từ GitHub..."
-        statusLabel.textColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
-
-        var request = URLRequest(url: directIpaUrl)
+        var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
         request.setValue("application/octet-stream, */*", forHTTPHeaderField: "Accept")
-        downloadTask = urlSession.downloadTask(with: request)
-        downloadTask?.resume()
-    }
 
-    @objc private func handleShareIpa() {
-        let url = getLocalIpaUrl()
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            let alert = UIAlertController(title: "Chưa Có File", message: "Vui lòng bấm 'Tải File IPA Vào Ứng Dụng' trước khi chia sẻ.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Đóng", style: .default))
-            present(alert, animated: true)
-            return
-        }
-
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        if let popover = activityVC.popoverPresentationController {
-            popover.sourceView = shareButton
-            popover.sourceRect = shareButton.bounds
-        }
-        present(activityVC, animated: true)
-    }
-
-    @objc private func handleOpenSafari() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        UIApplication.shared.open(directIpaUrl, options: [:], completionHandler: nil)
-    }
-
-    @objc private func handleCopyLink() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        UIPasteboard.general.string = directIpaUrl.absoluteString
-        let alert = UIAlertController(
-            title: "Đã Sao Chép Link! 📋",
-            message: "Link tải file AntigravityMobile.ipa đã được lưu vào bộ nhớ tạm. Bạn có thể dán vào SideStore, TrollStore hoặc Safari để cài đặt.",
-            preferredStyle: .alert
+        let task = urlSession.downloadTask(with: request)
+        let active = ActiveDownload(
+            id: id,
+            url: url,
+            filename: rawName,
+            task: task,
+            progress: 0.0,
+            bytesWritten: 0,
+            totalBytesExpected: 0
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        activeDownloads[id] = active
+        task.resume()
+
+        onDownloadsUpdated?()
+        onActiveCountChanged?(activeDownloads.count)
     }
 
-    @objc private func handleOpenGitHub() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if let url = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/tag/latest") {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    func cancelDownload(id: String) {
+        if let active = activeDownloads[id] {
+            active.task.cancel()
+            activeDownloads.removeValue(forKey: id)
+            onDownloadsUpdated?()
+            onActiveCountChanged?(activeDownloads.count)
         }
     }
 
-    @objc private func handleDeleteIpa() {
-        let alert = UIAlertController(title: "Xóa File Đã Tải?", message: "Xóa file AntigravityMobile.ipa khỏi bộ nhớ máy để giải phóng dung lượng?", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Xóa", style: .destructive, handler: { _ in
-            try? FileManager.default.removeItem(at: self.getLocalIpaUrl())
-            self.checkLocalIpa()
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        }))
-        present(alert, animated: true)
+    func deleteItem(_ item: DownloadItem) {
+        let url = getFileUrl(for: item)
+        try? FileManager.default.removeItem(at: url)
+        items.removeAll(where: { $0.id == item.id })
+        saveItems()
+        onDownloadsUpdated?()
+    }
+
+    func renameItem(_ item: DownloadItem, newName: String) -> Bool {
+        let cleanName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return false }
+        var targetName = cleanName
+        if item.isIpa && !targetName.lowercased().hasSuffix(".ipa") {
+            targetName += ".ipa"
+        }
+
+        let oldUrl = getFileUrl(for: item)
+        let newUrl = downloadsDirectory.appendingPathComponent(targetName)
+        do {
+            try FileManager.default.moveItem(at: oldUrl, to: newUrl)
+            if let idx = items.firstIndex(where: { $0.id == item.id }) {
+                items[idx].filename = targetName
+                saveItems()
+                onDownloadsUpdated?()
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func clearAll() {
+        for item in items {
+            let url = getFileUrl(for: item)
+            try? FileManager.default.removeItem(at: url)
+        }
+        items.removeAll()
+        saveItems()
+        onDownloadsUpdated?()
     }
 
     // URLSessionDownloadDelegate
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        if totalBytesExpectedToWrite > 0 {
-            let progress = Float(totalBytesWritten) / Float(totalBytesExpectedToWrite)
-            let mbWritten = Double(totalBytesWritten) / 1024.0 / 1024.0
-            let mbTotal = Double(totalBytesExpectedToWrite) / 1024.0 / 1024.0
-            let percent = Int(progress * 100)
-            DispatchQueue.main.async {
-                self.progressView.progress = progress
-                self.progressLabel.text = String(format: "Đang tải: %d%% (%.2f MB / %.2f MB)", percent, mbWritten, mbTotal)
-            }
+        guard let entry = activeDownloads.first(where: { $0.value.task == downloadTask }) else { return }
+        let id = entry.key
+        let progress = totalBytesExpectedToWrite > 0 ? Float(totalBytesWritten) / Float(totalBytesExpectedToWrite) : 0.0
+
+        activeDownloads[id]?.progress = progress
+        activeDownloads[id]?.bytesWritten = totalBytesWritten
+        activeDownloads[id]?.totalBytesExpected = totalBytesExpectedToWrite
+
+        DispatchQueue.main.async {
+            self.onProgressUpdated?(id, progress, totalBytesWritten, totalBytesExpectedToWrite)
         }
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        let fileManager = FileManager.default
-        let destUrl = getLocalIpaUrl()
-        try? fileManager.removeItem(at: destUrl)
-        do {
-            try fileManager.moveItem(at: location, to: destUrl)
-            DispatchQueue.main.async {
-                self.downloadTask = nil
-                self.downloadButton.isEnabled = true
-                self.downloadButton.alpha = 1.0
-                self.progressView.isHidden = true
-                self.progressLabel.isHidden = true
-                self.checkLocalIpa()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+        guard let entry = activeDownloads.first(where: { $0.value.task == downloadTask }) else { return }
+        let active = entry.value
+        let fm = FileManager.default
 
-                // Prompt user to share immediately
-                let alert = UIAlertController(
-                    title: "Tải Thành Công! 🎉",
-                    message: "File AntigravityMobile.ipa đã được lưu trong máy. Bạn có muốn mở bảng chia sẻ để cài đặt ngay qua SideStore, TrollStore hoặc Tệp không?",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "Để Sau", style: .cancel))
-                alert.addAction(UIAlertAction(title: "Chia Sẻ Ngay 🚀", style: .default, handler: { _ in
-                    self.handleShareIpa()
-                }))
-                self.present(alert, animated: true)
+        var destUrl = downloadsDirectory.appendingPathComponent(active.filename)
+        var counter = 1
+        let baseName = (active.filename as NSString).deletingPathExtension
+        let ext = (active.filename as NSString).pathExtension
+        while fm.fileExists(atPath: destUrl.path) {
+            let altName = ext.isEmpty ? "\(baseName)_\(counter)" : "\(baseName)_\(counter).\(ext)"
+            destUrl = downloadsDirectory.appendingPathComponent(altName)
+            counter += 1
+        }
+
+        do {
+            try fm.moveItem(at: location, to: destUrl)
+            let attrs = try fm.attributesOfItem(atPath: destUrl.path)
+            let size = (attrs[.size] as? Int64) ?? 0
+
+            let newItem = DownloadItem(
+                id: UUID().uuidString,
+                url: active.url.absoluteString,
+                filename: destUrl.lastPathComponent,
+                fileSize: size,
+                downloadDate: Date()
+            )
+
+            DispatchQueue.main.async {
+                self.items.insert(newItem, at: 0)
+                self.activeDownloads.removeValue(forKey: active.id)
+                self.saveItems()
+                self.onDownloadsUpdated?()
+                self.onActiveCountChanged?(self.activeDownloads.count)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         } catch {
             DispatchQueue.main.async {
-                self.downloadTask = nil
-                self.downloadButton.isEnabled = true
-                self.downloadButton.alpha = 1.0
-                self.progressView.isHidden = true
-                self.progressLabel.isHidden = true
-                self.statusLabel.text = "❌ Lỗi lưu file: \(error.localizedDescription)"
-                self.statusLabel.textColor = .systemRed
+                self.activeDownloads.removeValue(forKey: active.id)
+                self.onDownloadsUpdated?()
+                self.onActiveCountChanged?(self.activeDownloads.count)
             }
         }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error = error {
-            DispatchQueue.main.async {
-                self.downloadTask = nil
-                self.downloadButton.isEnabled = true
-                self.downloadButton.alpha = 1.0
-                self.progressView.isHidden = true
-                self.progressLabel.isHidden = true
-                self.statusLabel.text = "❌ Lỗi tải về: \(error.localizedDescription)"
-                self.statusLabel.textColor = .systemRed
-            }
+        guard let task = task as? URLSessionDownloadTask,
+              let entry = activeDownloads.first(where: { $0.value.task == task }) else { return }
+        DispatchQueue.main.async {
+            self.activeDownloads.removeValue(forKey: entry.key)
+            self.onDownloadsUpdated?()
+            self.onActiveCountChanged?(self.activeDownloads.count)
         }
     }
 }
+
+// MARK: - Safari-Style Download & File Manager View Controller
+class SafariDownloadManagerViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, QLPreviewControllerDataSource {
+
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private var previewItemUrl: URL?
+
+    private let directAntigravityIpaUrl = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/download/latest/AntigravityMobile.ipa")!
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Tải Về & Tệp"
+        view.backgroundColor = .systemGroupedBackground
+
+        setupNavigationBar()
+        setupTableView()
+        setupHeaderCards()
+
+        DownloadManager.shared.onDownloadsUpdated = { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
+
+        DownloadManager.shared.onProgressUpdated = { [weak self] id, progress, written, total in
+            DispatchQueue.main.async {
+                self?.updateProgressForActiveDownload(id: id, progress: progress, written: written, total: total)
+            }
+        }
+
+        DownloadManager.shared.scanDirectory()
+    }
+
+    private func setupNavigationBar() {
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Xong",
+            style: .done,
+            target: self,
+            action: #selector(handleClose)
+        )
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Dọn Dẹp",
+            style: .plain,
+            target: self,
+            action: #selector(handleClearAll)
+        )
+    }
+
+    private func setupTableView() {
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "FileCell")
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    private func setupHeaderCards() {
+        let headerView = UIView()
+        headerView.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 190)
+
+        let stack = UIStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 10
+        stack.distribution = .fillEqually
+        headerView.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
+            stack.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -12)
+        ])
+
+        // Button 1: Download from URL (Any Project)
+        let customUrlBtn = createHeaderButton(
+            title: " + Tải Tệp / IPA Từ Link Mới",
+            subtitle: "Dán link tải từ GitHub hoặc trang web bất kỳ",
+            icon: "plus.circle.fill",
+            bgColor: UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0),
+            textColor: .white,
+            action: #selector(handleDownloadFromUrl)
+        )
+        stack.addArrangedSubview(customUrlBtn)
+
+        // Button 2: Quick Download Antigravity Latest IPA
+        let defaultAppBtn = createHeaderButton(
+            title: " 🚀 Tải Antigravity IPA Mới Nhất",
+            subtitle: "Bản phát hành chính thức từ GitHub Releases",
+            icon: "arrow.down.circle",
+            bgColor: UIColor.secondarySystemGroupedBackground,
+            textColor: .label,
+            action: #selector(handleDownloadAntigravityIpa)
+        )
+        defaultAppBtn.layer.borderWidth = 0.5
+        defaultAppBtn.layer.borderColor = UIColor.separator.cgColor
+        stack.addArrangedSubview(defaultAppBtn)
+
+        // Button 3: Reveal in Files App
+        let openFilesBtn = createHeaderButton(
+            title: " 📂 Mở Trong Ứng Dụng \"Tệp\" (Files)",
+            subtitle: "Xem thư mục Downloads trên iPhone của bạn",
+            icon: "folder",
+            bgColor: UIColor.secondarySystemGroupedBackground,
+            textColor: .label,
+            action: #selector(handleOpenInFiles)
+        )
+        openFilesBtn.layer.borderWidth = 0.5
+        openFilesBtn.layer.borderColor = UIColor.separator.cgColor
+        stack.addArrangedSubview(openFilesBtn)
+
+        tableView.tableHeaderView = headerView
+    }
+
+    private func createHeaderButton(title: String, subtitle: String, icon: String, bgColor: UIColor, textColor: UIColor, action: Selector) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.backgroundColor = bgColor
+        btn.layer.cornerRadius = 14
+        btn.layer.cornerCurve = .continuous
+        btn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 14, bottom: 8, right: 14)
+        btn.addTarget(self, action: action, for: .touchUpInside)
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = title
+        titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+        titleLabel.textColor = textColor
+
+        let subLabel = UILabel()
+        subLabel.translatesAutoresizingMaskIntoConstraints = false
+        subLabel.text = subtitle
+        subLabel.font = UIFont.systemFont(ofSize: 11, weight: .regular)
+        subLabel.textColor = textColor.withAlphaComponent(0.8)
+
+        let iconView = UIImageView(image: UIImage(systemName: icon))
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.tintColor = textColor
+        iconView.contentMode = .scaleAspectFit
+
+        let innerStack = UIStackView(arrangedSubviews: [titleLabel, subLabel])
+        innerStack.translatesAutoresizingMaskIntoConstraints = false
+        innerStack.axis = .vertical
+        innerStack.spacing = 2
+        innerStack.isUserInteractionEnabled = false
+
+        btn.addSubview(iconView)
+        btn.addSubview(innerStack)
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: btn.leadingAnchor, constant: 14),
+            iconView.centerYAnchor.constraint(equalTo: btn.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 24),
+            iconView.heightAnchor.constraint(equalToConstant: 24),
+
+            innerStack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
+            innerStack.trailingAnchor.constraint(equalTo: btn.trailingAnchor, constant: -14),
+            innerStack.centerYAnchor.constraint(equalTo: btn.centerYAnchor)
+        ])
+
+        return btn
+    }
+
+    @objc private func handleClose() {
+        dismiss(animated: true)
+    }
+
+    @objc private func handleClearAll() {
+        guard !DownloadManager.shared.items.isEmpty else { return }
+        let alert = UIAlertController(
+            title: "Dọn Dẹp Danh Sách",
+            message: "Bạn có muốn xóa toàn bộ danh sách tệp đã tải về khỏi bộ nhớ máy không?",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Xóa Toàn Bộ Tệp", style: .destructive, handler: { _ in
+            DownloadManager.shared.clearAll()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }))
+        if let popover = alert.popoverPresentationController {
+            popover.barButtonItem = navigationItem.leftBarButtonItem
+        }
+        present(alert, animated: true)
+    }
+
+    @objc private func handleDownloadFromUrl() {
+        let clipboard = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let defaultText = clipboard.starts(with: "http") ? clipboard : ""
+
+        let alert = UIAlertController(
+            title: "Tải Tệp Từ Link Mới",
+            message: "Nhập hoặc dán link URL file .ipa, .zip, .deb từ GitHub hoặc web:",
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.text = defaultText
+            tf.placeholder = "https://example.com/app.ipa"
+            tf.clearButtonMode = .whileEditing
+            tf.keyboardType = .URL
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Bắt Đầu Tải", style: .default, handler: { _ in
+            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+               let url = URL(string: text) {
+                DownloadManager.shared.startDownload(url: url)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
+        }))
+        present(alert, animated: true)
+    }
+
+    @objc private func handleDownloadAntigravityIpa() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        DownloadManager.shared.startDownload(url: directAntigravityIpaUrl, customFilename: "AntigravityMobile.ipa")
+    }
+
+    @objc private func handleOpenInFiles() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        let dir = DownloadManager.shared.downloadsDirectory
+        let activityVC = UIActivityViewController(activityItems: [dir], applicationActivities: nil)
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+        }
+        present(activityVC, animated: true)
+    }
+
+    private func updateProgressForActiveDownload(id: String, progress: Float, written: Int64, total: Int64) {
+        let activeList = Array(DownloadManager.shared.activeDownloads.values)
+        guard let row = activeList.firstIndex(where: { $0.id == id }) else { return }
+        let indexPath = IndexPath(row: row, section: 0)
+        if let cell = tableView.cellForRow(at: indexPath) {
+            let percent = Int(progress * 100)
+            let detail = total > 0 ? "\(written.formattedFileSize) / \(total.formattedFileSize) (\(percent)%)" : "\(written.formattedFileSize) đã tải..."
+            cell.detailTextLabel?.text = detail
+            if let pv = cell.contentView.subviews.first(where: { $0 is UIProgressView }) as? UIProgressView {
+                pv.progress = progress
+            }
+        }
+    }
+
+    // UITableViewDataSource
+    func numberOfSections(in tableView: UITableView) -> Int {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        return hasActive ? 2 : 1
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        if hasActive && section == 0 {
+            return DownloadManager.shared.activeDownloads.count
+        }
+        let itemsCount = DownloadManager.shared.items.count
+        return itemsCount > 0 ? itemsCount : (hasActive ? 0 : 1)
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        if hasActive && section == 0 {
+            return "ĐANG TẢI VỀ (\(DownloadManager.shared.activeDownloads.count))"
+        }
+        let count = DownloadManager.shared.items.count
+        return "TỆP ĐÃ TẢI VỀ (\(count))"
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+
+        // Section: Active Downloads
+        if hasActive && indexPath.section == 0 {
+            let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "ActiveDownloadCell")
+            let activeList = Array(DownloadManager.shared.activeDownloads.values)
+            guard indexPath.row < activeList.count else { return cell }
+            let item = activeList[indexPath.row]
+
+            cell.textLabel?.text = item.filename
+            cell.textLabel?.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+
+            let percent = Int(item.progress * 100)
+            cell.detailTextLabel?.text = item.totalBytesExpected > 0
+                ? "\(item.bytesWritten.formattedFileSize) / \(item.totalBytesExpected.formattedFileSize) (\(percent)%)"
+                : "Đang kết nối..."
+            cell.detailTextLabel?.textColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+            cell.imageView?.image = UIImage(systemName: "arrow.down.circle.fill")
+            cell.imageView?.tintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+
+            let cancelBtn = UIButton(type: .system)
+            cancelBtn.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+            cancelBtn.tintColor = .secondaryLabel
+            cancelBtn.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+            cancelBtn.tag = indexPath.row
+            cancelBtn.addTarget(self, action: #selector(handleCancelActiveDownload(_:)), for: .touchUpInside)
+            cell.accessoryView = cancelBtn
+            return cell
+        }
+
+        // Section: Completed Downloads
+        if DownloadManager.shared.items.isEmpty {
+            let emptyCell = UITableViewCell(style: .default, reuseIdentifier: "EmptyCell")
+            emptyCell.textLabel?.text = "Chưa có tệp tải về nào trong máy"
+            emptyCell.textLabel?.textColor = .secondaryLabel
+            emptyCell.textLabel?.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+            emptyCell.textLabel?.textAlignment = .center
+            emptyCell.selectionStyle = .none
+            return emptyCell
+        }
+
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "FileCell")
+        guard indexPath.row < DownloadManager.shared.items.count else { return cell }
+        let item = DownloadManager.shared.items[indexPath.row]
+
+        cell.textLabel?.text = item.filename
+        cell.textLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+
+        let subtitle = "\(item.fileSize.formattedFileSize) • \(item.downloadDate.relativeDisplay)\(item.isIpa ? " • 🚀 Sideload IPA" : "")"
+        cell.detailTextLabel?.text = subtitle
+        cell.detailTextLabel?.textColor = .secondaryLabel
+
+        // Color-coded icons
+        if item.isIpa {
+            cell.imageView?.image = UIImage(systemName: "app.badge.fill")
+            cell.imageView?.tintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        } else if item.filename.lowercased().hasSuffix(".zip") || item.filename.lowercased().hasSuffix(".deb") || item.filename.lowercased().hasSuffix(".rar") {
+            cell.imageView?.image = UIImage(systemName: "archivebox.fill")
+            cell.imageView?.tintColor = .systemOrange
+        } else if item.filename.lowercased().hasSuffix(".pdf") {
+            cell.imageView?.image = UIImage(systemName: "doc.text.fill")
+            cell.imageView?.tintColor = .systemRed
+        } else {
+            cell.imageView?.image = UIImage(systemName: "doc.fill")
+            cell.imageView?.tintColor = .secondaryLabel
+        }
+
+        let shareBtn = UIButton(type: .system)
+        shareBtn.setImage(UIImage(systemName: "square.and.arrow.up"), for: .normal)
+        shareBtn.tintColor = item.isIpa ? UIColor.systemGreen : UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        shareBtn.frame = CGRect(x: 0, y: 0, width: 34, height: 34)
+        shareBtn.tag = indexPath.row
+        shareBtn.addTarget(self, action: #selector(handleShareRowButton(_:)), for: .touchUpInside)
+        cell.accessoryView = shareBtn
+
+        return cell
+    }
+
+    @objc private func handleCancelActiveDownload(_ sender: UIButton) {
+        let activeList = Array(DownloadManager.shared.activeDownloads.values)
+        if sender.tag < activeList.count {
+            let active = activeList[sender.tag]
+            DownloadManager.shared.cancelDownload(id: active.id)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+
+    @objc private func handleShareRowButton(_ sender: UIButton) {
+        if sender.tag < DownloadManager.shared.items.count {
+            let item = DownloadManager.shared.items[sender.tag]
+            shareFile(item, sourceView: sender)
+        }
+    }
+
+    // UITableViewDelegate: Tapping a row
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        if hasActive && indexPath.section == 0 { return }
+
+        guard indexPath.row < DownloadManager.shared.items.count else { return }
+        let item = DownloadManager.shared.items[indexPath.row]
+        let cell = tableView.cellForRow(at: indexPath)
+
+        if item.isIpa {
+            showIpaActionSheet(for: item, sourceView: cell ?? view)
+        } else {
+            showGeneralFileActionSheet(for: item, sourceView: cell ?? view)
+        }
+    }
+
+    private func showIpaActionSheet(for item: DownloadItem, sourceView: UIView) {
+        let sheet = UIAlertController(
+            title: item.filename,
+            message: "Dung lượng: \(item.fileSize.formattedFileSize) • Sẵn sàng Sideload vào iPhone",
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "🚀 Chia Sẻ Để Sideload (TrollStore / SideStore / AltStore)", style: .default, handler: { _ in
+            self.shareFile(item, sourceView: sourceView)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "📂 Mở Trong Ứng Dụng Tệp (Files)", style: .default, handler: { _ in
+            self.shareFile(item, sourceView: sourceView)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "✏️ Đổi Tên Tệp", style: .default, handler: { _ in
+            self.showRenameDialog(for: item)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "📋 Sao Chép Tên Tệp", style: .default, handler: { _ in
+            UIPasteboard.general.string = item.filename
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🗑️ Xóa Tệp Này Khỏi Máy", style: .destructive, handler: { _ in
+            DownloadManager.shared.deleteItem(item)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = sourceView
+            popover.sourceRect = sourceView.bounds
+        }
+        present(sheet, animated: true)
+    }
+
+    private func showGeneralFileActionSheet(for item: DownloadItem, sourceView: UIView) {
+        let sheet = UIAlertController(
+            title: item.filename,
+            message: "Dung lượng: \(item.fileSize.formattedFileSize)",
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "👁️ Xem Nhanh Tệp (Quick Look)", style: .default, handler: { _ in
+            self.previewFile(item)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🚀 Chia Sẻ Tệp", style: .default, handler: { _ in
+            self.shareFile(item, sourceView: sourceView)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "✏️ Đổi Tên Tệp", style: .default, handler: { _ in
+            self.showRenameDialog(for: item)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🗑️ Xóa Tệp Này", style: .destructive, handler: { _ in
+            DownloadManager.shared.deleteItem(item)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }))
+
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = sourceView
+            popover.sourceRect = sourceView.bounds
+        }
+        present(sheet, animated: true)
+    }
+
+    private func shareFile(_ item: DownloadItem, sourceView: UIView? = nil) {
+        let fileUrl = DownloadManager.shared.getFileUrl(for: item)
+        guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let activityVC = UIActivityViewController(activityItems: [fileUrl], applicationActivities: nil)
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = sourceView ?? view
+            popover.sourceRect = sourceView?.bounds ?? CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+        }
+        present(activityVC, animated: true)
+    }
+
+    private func previewFile(_ item: DownloadItem) {
+        let fileUrl = DownloadManager.shared.getFileUrl(for: item)
+        guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
+
+        self.previewItemUrl = fileUrl
+        let previewVC = QLPreviewController()
+        previewVC.dataSource = self
+        present(previewVC, animated: true)
+    }
+
+    private func showRenameDialog(for item: DownloadItem) {
+        let alert = UIAlertController(title: "Đổi Tên Tệp", message: "Nhập tên mới cho tệp:", preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = item.filename
+            tf.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Lưu", style: .default, handler: { _ in
+            if let newName = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !newName.isEmpty {
+                _ = DownloadManager.shared.renameItem(item, newName: newName)
+            }
+        }))
+        present(alert, animated: true)
+    }
+
+    // Swipe Actions
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        if hasActive && indexPath.section == 0 { return nil }
+        guard indexPath.row < DownloadManager.shared.items.count else { return nil }
+
+        let item = DownloadManager.shared.items[indexPath.row]
+        let deleteAction = UIContextualAction(style: .destructive, title: "Xóa") { _, _, completion in
+            DownloadManager.shared.deleteItem(item)
+            completion(true)
+        }
+        deleteAction.image = UIImage(systemName: "trash")
+        return UISwipeActionsConfiguration(actions: [deleteAction])
+    }
+
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let hasActive = !DownloadManager.shared.activeDownloads.isEmpty
+        if hasActive && indexPath.section == 0 { return nil }
+        guard indexPath.row < DownloadManager.shared.items.count else { return nil }
+
+        let item = DownloadManager.shared.items[indexPath.row]
+        let shareAction = UIContextualAction(style: .normal, title: "Chia Sẻ") { [weak self] _, _, completion in
+            self?.shareFile(item)
+            completion(true)
+        }
+        shareAction.backgroundColor = item.isIpa ? UIColor.systemGreen : UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        shareAction.image = UIImage(systemName: "square.and.arrow.up")
+        return UISwipeActionsConfiguration(actions: [shareAction])
+    }
+
+    // QLPreviewControllerDataSource
+    func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+        return previewItemUrl != nil ? 1 : 0
+    }
+
+    func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+        return (previewItemUrl ?? URL(fileURLWithPath: "")) as NSURL
+    }
+}
+
+// Backward compatibility alias
+typealias IPAManagerViewController = SafariDownloadManagerViewController
+
