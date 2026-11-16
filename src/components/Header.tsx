@@ -45,8 +45,11 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="max-w-[150px] truncate font-medium">{hostConfig.name}</span>
+          <span className="flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Realtime Live
+          </span>
+          <span className="max-w-[130px] truncate font-medium">{hostConfig.name}</span>
         </div>
       </div>
 

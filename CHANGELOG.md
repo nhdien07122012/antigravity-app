@@ -4,6 +4,21 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 10 - 2026-11-16
+- **Commit:** `7fe1780`
+- **Mục tiêu thay đổi tóm tắt:** Kích hoạt cơ chế Real-time Live Synchronization tự động đồng bộ tức thì các tin nhắn, khối tư duy (*thinking*), và công cụ (*tool execution*) giữa phiên làm việc Google Remote Control / Antigravity host và ứng dụng di động; bổ sung huy hiệu trạng thái `● Realtime Live` tại Header.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `src/App.tsx`: Tích hợp bộ lắng nghe `useEffect` đồng bộ thời gian thực chu kỳ 2 giây trực tiếp từ `transcript.jsonl` của phiên đang mở; tự động phát hiện tin nhắn mới gửi từ Google Remote web / desktop và cập nhật vào `currentSession`; tích hợp chu kỳ 8 giây tự động quét phát hiện các phiên chat mới.
+  - `src/components/Header.tsx`: Bổ sung huy hiệu động `● Realtime Live` viền xanh ngọc báo hiệu trạng thái kết nối trực tiếp với Google Remote session.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 10` (`v1.0.0 (Build 10)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 10`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 7fe1780 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 9 - 2026-11-16
 - **Commit:** `d5a0f7d`
 - **Mục tiêu thay đổi tóm tắt:** Đồng bộ 100% tính năng phân loại hội thoại theo từng Project giữa Mobile (.ipa) và Windows (Web), giải quyết triệt để lỗi mất kết nối host trên native iOS qua bộ cấu hình Server URL động, hỗ trợ phân nhóm Accordion Project Folders, tìm kiếm hội thoại, và cấp phép Apple App Transport Security (ATS).

@@ -107,6 +107,74 @@ export const App: React.FC = () => {
     });
   }, [pendingApprovalsCount]);
 
+  // Real-time synchronization: Poll active session transcript every 2 seconds to reflect messages when chatting on Google Remote or desktop
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const realMsgs = await storage.fetchRealTranscript(activeSessionId);
+        if (!isMounted) return;
+
+        if (realMsgs && realMsgs.length > 0) {
+          setCurrentSession((prev) => {
+            if (!prev || prev.id !== activeSessionId) return prev;
+            const prevLen = prev.messages?.length || 0;
+            const newLen = realMsgs.length;
+            if (prevLen !== newLen) {
+              return { ...prev, messages: realMsgs };
+            }
+            // Check if latest message status, content or toolCalls changed
+            if (prevLen > 0) {
+              const lastPrev = prev.messages[prevLen - 1];
+              const lastNew = realMsgs[newLen - 1];
+              if (
+                lastPrev &&
+                lastNew &&
+                (lastPrev.content !== lastNew.content ||
+                  (lastPrev.toolCalls?.length || 0) !== (lastNew.toolCalls?.length || 0) ||
+                  lastPrev.thinking !== lastNew.thinking)
+              ) {
+                return { ...prev, messages: realMsgs };
+              }
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeSessionId]);
+
+  // Periodic check for new sessions created on Google Remote or PC host
+  useEffect(() => {
+    let isMounted = true;
+    const sessionPollInterval = setInterval(async () => {
+      try {
+        const updatedSessions = await storage.fetchRealServerSessions(activeProjectId);
+        if (!isMounted) return;
+        if (updatedSessions && updatedSessions.length > 0) {
+          setSessions((prev) => {
+            if (prev.length !== updatedSessions.length || prev[0]?.id !== updatedSessions[0]?.id) {
+              return updatedSessions;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 8000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(sessionPollInterval);
+    };
+  }, [activeProjectId]);
+
   // Handle Switch Project (Filters conversations by project!)
   const handleSelectProject = async (projectId: string) => {
     setActiveProjectId(projectId);
