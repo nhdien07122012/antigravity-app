@@ -4,6 +4,35 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 23 - 2026-11-16
+- **Commit:** `93cc8da`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi hiển thị mã nhị phân ZIP/IPA dạng chữ thô (`PK... Payload/Runner.app/...`) khi bấm tải IPA; bổ sung cơ chế đánh chặn điều hướng tải tệp an toàn (Safe Download Interception) trên `WKNavigationDelegate` & `WKUIDelegate`; hỗ trợ tải ngầm nền thông qua `URLSessionDownloadTask` kèm thanh tiến trình trực quan, tự động kích hoạt bảng chia sẻ iOS (`UIActivityViewController`) cho TrollStore / SideStore / Files; đồng thời tích hợp thêm nút mở tải trực tiếp qua Safari và sao chép link cài đặt.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Khắc phục triệt để lỗi WebKit hiển thị chữ nhị phân ZIP thô (`PK...`):**
+      - Thêm hàm `isIpaDownloadUrl(_ url: URL?) -> Bool` nhận diện chính xác các liên kết tải file `.ipa`, `/releases/download/`, hoặc MIME type `application/octet-stream` / `application/x-itunes-ipa`.
+      - Bổ sung `webView(_:decidePolicyFor:navigationAction:decisionHandler:)`: Tự động chặn (`decisionHandler(.cancel)`) khi có yêu cầu điều hướng tới URL file IPA và chuyển tiếp an toàn sang `handleIpaManagerTapped()`.
+      - Bổ sung `webView(_:decidePolicyFor:navigationResponse:decisionHandler:)`: Chặn phản hồi nhị phân `.ipa` hoặc `application/octet-stream` từ server, ngăn chặn WebKit giải mã nhầm luồng zip thành văn bản hiển thị lên màn hình.
+      - Cập nhật `webView(_:createWebViewWith:...)`: Kiểm tra URL của navigationAction trước khi tải, chặn tuyệt đối việc mở tệp nhị phân trong WKWebView.
+      - Tự động phục hồi màn hình (`handleIpaManagerTapped()`): Nếu WKWebView đang bị kẹt ở màn hình chữ nhị phân `PK...`, hàm tự động nạp lại URL gốc của dự án (`https://antigravity.google.com`).
+      - Bổ sung `WKScriptMessageHandler` (`antigravityNative`) kết nối hai chiều với giao diện Web: khi người dùng bấm tải trên Web Dock Modal, native app nhận lệnh và mở trình quản lý IPA ngay lập tức.
+    - **Nâng cấp `IPAManagerViewController`:**
+      - Thêm User-Agent chuẩn Safari Mobile vào `URLSessionDownloadTask` khi tải file từ GitHub, tránh bị GitHub từ chối.
+      - Bổ sung nút "🌐 Mở Tải Bằng Trình Duyệt Safari" (`UIApplication.shared.open(directIpaUrl)`): Tận dụng trình quản lý tải file gốc của Safari trên iOS.
+      - Bổ sung nút "📋 Sao Chép Link Tải Trực Tiếp" (`UIPasteboard.general.string`): Cho phép dán trực tiếp vào URL installer của TrollStore, SideStore hoặc AltStore.
+      - Tự động hiển thị hộp thoại gợi ý chia sẻ ngay sau khi tải hoàn tất: Bấm "Chia Sẻ Ngay 🚀" kích hoạt `UIActivityViewController` chia sẻ file IPA cục bộ.
+  - `src/components/IPAManagerModal.tsx`:
+    - Thay thế thẻ `<a href download>` trực tiếp bằng cơ chế gọi an toàn: kiểm tra `window.webkit.messageHandlers.antigravityNative` để kích hoạt giao diện native, tránh cho WKWebView điều hướng vào luồng nhị phân.
+    - Bổ sung các tùy chọn: Mở tải qua Safari, Chia sẻ link Sideload và Sao chép liên kết tải trực tiếp.
+  - `src/version.ts`: Nâng cấp lên `Build 23` (`v1.0.0 (Build 23)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 23`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 93cc8da --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 22 - 2026-11-16
 - **Commit:** `bd59980`
 - **GitHub Actions Run:** `#43862404482` (success)

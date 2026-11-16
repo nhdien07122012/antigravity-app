@@ -32,7 +32,8 @@ class WorkspaceStore {
            var list = try? JSONDecoder().decode([RemoteWorkspace].self, from: data), !list.isEmpty {
             var changed = false
             for i in 0..<list.count {
-                if list[i].url.contains("3a713708-cef0-49ba-b842-af9504802f6a-v2") {
+                let lower = list[i].url.lowercased()
+                if lower.contains("3a713708-cef0-49ba-b842-af9504802f6a-v2") || lower.contains(".ipa") || lower.contains("/releases/download/") {
                     list[i].url = "https://antigravity.google.com"
                     list[i].sessionId = nil
                     changed = true
@@ -117,7 +118,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 // MARK: - Main Container View Controller
-class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, QRScannerDelegate {
+class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, QRScannerDelegate, WKScriptMessageHandler {
 
     private var workspaces: [RemoteWorkspace] = []
     private var activeWorkspaceId: String = ""
@@ -370,6 +371,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.websiteDataStore = WKWebsiteDataStore.default()
+        config.userContentController.add(self, name: "antigravityNative")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -638,6 +640,19 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     // MARK: - IPA Download & Sideload Manager
     @objc private func handleIpaManagerTapped() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        // Recover active webView if it was navigated to an IPA file URL (e.g. showing raw PK... binary text)
+        if let activeWs = workspaces.first(where: { $0.id == activeWorkspaceId }),
+           let wv = webViews[activeWorkspaceId] {
+            let curUrl = wv.url?.absoluteString.lowercased() ?? ""
+            if curUrl.contains(".ipa") || curUrl.contains("/releases/download/") {
+                let clean = activeWs.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let targetUrl = URL(string: clean) ?? URL(string: clean.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
+                    wv.load(URLRequest(url: targetUrl))
+                }
+            }
+        }
+
         let ipaVC = IPAManagerViewController()
         let nav = UINavigationController(rootViewController: ipaVC)
         if #available(iOS 15.0, *) {
@@ -747,15 +762,68 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         webView.evaluateJavaScript("document.body.style.zoom = '\(percent)%'", completionHandler: nil)
     }
 
-    // MARK: - WKNavigationDelegate & WKUIDelegate
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Safe navigation finish: apply zoom without destroying Google DOM
-        if currentZoom != 1.0 {
-            applyZoom(currentZoom, to: webView)
+    // MARK: - WKScriptMessageHandler
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "antigravityNative" {
+            if let body = message.body as? [String: Any], let action = body["action"] as? String {
+                if action == "openIpaManager" {
+                    handleIpaManagerTapped()
+                }
+            } else if let action = message.body as? String, action == "openIpaManager" {
+                handleIpaManagerTapped()
+            }
         }
     }
 
+    private func isIpaDownloadUrl(_ url: URL?) -> Bool {
+        guard let url = url else { return false }
+        let str = url.absoluteString.lowercased()
+        if str.hasSuffix(".ipa") || str.contains(".ipa?") {
+            return true
+        }
+        if str.contains("/releases/download/") && str.contains(".ipa") {
+            return true
+        }
+        if str.contains("antigravitymobile.ipa") {
+            return true
+        }
+        if url.scheme == "antigravity" && url.host == "ipa" {
+            return true
+        }
+        return false
+    }
+
+    // MARK: - WKNavigationDelegate & WKUIDelegate
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let url = navigationAction.request.url, isIpaDownloadUrl(url) {
+            decisionHandler(.cancel)
+            DispatchQueue.main.async {
+                self.handleIpaManagerTapped()
+            }
+            return
+        }
+        decisionHandler(.allow)
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if let url = navigationResponse.response.url, isIpaDownloadUrl(url) {
+            decisionHandler(.cancel)
+            DispatchQueue.main.async {
+                self.handleIpaManagerTapped()
+            }
+            return
+        }
+
+        let mime = navigationResponse.response.mimeType?.lowercased() ?? ""
+        let filename = navigationResponse.response.suggestedFilename?.lowercased() ?? ""
+        if mime == "application/x-itunes-ipa" || (mime == "application/octet-stream" && filename.hasSuffix(".ipa")) {
+            decisionHandler(.cancel)
+            DispatchQueue.main.async {
+                self.handleIpaManagerTapped()
+            }
+            return
+        }
+
         if let httpResponse = navigationResponse.response as? HTTPURLResponse {
             if httpResponse.statusCode == 403 {
                 DispatchQueue.main.async {
@@ -764,6 +832,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             }
         }
         decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Safe navigation finish: apply zoom without destroying Google DOM
+        if currentZoom != 1.0 {
+            applyZoom(currentZoom, to: webView)
+        }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -775,6 +850,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url, isIpaDownloadUrl(url) {
+            DispatchQueue.main.async {
+                self.handleIpaManagerTapped()
+            }
+            return nil
+        }
         if navigationAction.targetFrame == nil {
             webView.load(navigationAction.request)
         }
@@ -1036,6 +1117,8 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
     // Action Buttons
     private let downloadButton = UIButton(type: .system)
     private let shareButton = UIButton(type: .system)
+    private let safariButton = UIButton(type: .system)
+    private let copyLinkButton = UIButton(type: .system)
     private let githubButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
 
@@ -1143,13 +1226,21 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
         statusCard.addSubview(progressLabel)
 
         // Buttons
-        setupActionButton(downloadButton, title: " 📥 Tải Bản Cài IPA Về Máy", bgColor: UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0), textColor: .white, action: #selector(handleDownloadIpa))
+        setupActionButton(downloadButton, title: " 📥 Tải File IPA Vào Ứng Dụng", bgColor: UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0), textColor: .white, action: #selector(handleDownloadIpa))
         contentView.addSubview(downloadButton)
 
         setupActionButton(shareButton, title: " 🚀 Chia Sẻ Để Sideload (TrollStore / SideStore)", bgColor: UIColor.systemGreen, textColor: .white, action: #selector(handleShareIpa))
         contentView.addSubview(shareButton)
 
-        setupActionButton(githubButton, title: " 🌐 Xem Trang GitHub Releases", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleOpenGitHub))
+        setupActionButton(safariButton, title: " 🌐 Mở Tải Bằng Trình Duyệt Safari", bgColor: UIColor(red: 0.10, green: 0.55, blue: 0.95, alpha: 1.0), textColor: .white, action: #selector(handleOpenSafari))
+        contentView.addSubview(safariButton)
+
+        setupActionButton(copyLinkButton, title: " 📋 Sao Chép Link Tải Trực Tiếp", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleCopyLink))
+        copyLinkButton.layer.borderWidth = 1
+        copyLinkButton.layer.borderColor = UIColor.separator.cgColor
+        contentView.addSubview(copyLinkButton)
+
+        setupActionButton(githubButton, title: " 🔗 Xem Trang GitHub Releases", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleOpenGitHub))
         githubButton.layer.borderWidth = 1
         githubButton.layer.borderColor = UIColor.separator.cgColor
         contentView.addSubview(githubButton)
@@ -1229,7 +1320,17 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
             shareButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             shareButton.heightAnchor.constraint(equalToConstant: 48),
 
-            githubButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 10),
+            safariButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 10),
+            safariButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            safariButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            safariButton.heightAnchor.constraint(equalToConstant: 46),
+
+            copyLinkButton.topAnchor.constraint(equalTo: safariButton.bottomAnchor, constant: 10),
+            copyLinkButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            copyLinkButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            copyLinkButton.heightAnchor.constraint(equalToConstant: 44),
+
+            githubButton.topAnchor.constraint(equalTo: copyLinkButton.bottomAnchor, constant: 10),
             githubButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             githubButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             githubButton.heightAnchor.constraint(equalToConstant: 44),
@@ -1277,12 +1378,12 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
                 return
             }
         }
-        statusLabel.text = "Chưa có file trong máy. Chạm 'Tải Bản Cài IPA' để bắt đầu."
+        statusLabel.text = "Chưa có file trong máy. Chạm 'Tải File IPA Vào Ứng Dụng' để bắt đầu."
         statusLabel.textColor = .secondaryLabel
         shareButton.isEnabled = false
         shareButton.alpha = 0.5
         deleteButton.isHidden = true
-        downloadButton.setTitle(" 📥 Tải Bản Cài IPA Về Máy", for: .normal)
+        downloadButton.setTitle(" 📥 Tải File IPA Vào Ứng Dụng", for: .normal)
     }
 
     private func fetchReleaseInfo() {
@@ -1334,14 +1435,17 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
         statusLabel.text = "⏳ Đang tải file AntigravityMobile.ipa từ GitHub..."
         statusLabel.textColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
 
-        downloadTask = urlSession.downloadTask(with: directIpaUrl)
+        var request = URLRequest(url: directIpaUrl)
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/octet-stream, */*", forHTTPHeaderField: "Accept")
+        downloadTask = urlSession.downloadTask(with: request)
         downloadTask?.resume()
     }
 
     @objc private func handleShareIpa() {
         let url = getLocalIpaUrl()
         guard FileManager.default.fileExists(atPath: url.path) else {
-            let alert = UIAlertController(title: "Chưa Có File", message: "Vui lòng bấm 'Tải Bản Cài IPA Về Máy' trước khi chia sẻ.", preferredStyle: .alert)
+            let alert = UIAlertController(title: "Chưa Có File", message: "Vui lòng bấm 'Tải File IPA Vào Ứng Dụng' trước khi chia sẻ.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "Đóng", style: .default))
             present(alert, animated: true)
             return
@@ -1356,10 +1460,27 @@ class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
         present(activityVC, animated: true)
     }
 
+    @objc private func handleOpenSafari() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIApplication.shared.open(directIpaUrl, options: [:], completionHandler: nil)
+    }
+
+    @objc private func handleCopyLink() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIPasteboard.general.string = directIpaUrl.absoluteString
+        let alert = UIAlertController(
+            title: "Đã Sao Chép Link! 📋",
+            message: "Link tải file AntigravityMobile.ipa đã được lưu vào bộ nhớ tạm. Bạn có thể dán vào SideStore, TrollStore hoặc Safari để cài đặt.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     @objc private func handleOpenGitHub() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         if let url = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/tag/latest") {
-            UIApplication.shared.open(url)
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
 
