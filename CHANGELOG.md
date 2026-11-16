@@ -6,6 +6,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ## [v1.0.0] - Build 22 - 2026-11-16
 - **Commit:** `bd59980`
+- **GitHub Actions Run:** `#43862404482` (success)
 - **Mục tiêu thay đổi tóm tắt:** Bổ sung tính năng Quản lý & Tải bản cài IPA trực tiếp từ GitHub Releases tích hợp ngay trên Dock: cho phép tải file `AntigravityMobile.ipa`, hiển thị tiến trình tải trực quan, và mở bảng chia sẻ iOS (`UIActivityViewController`) để chuyển tiếp sang SideStore, TrollStore, AltStore, hoặc ứng dụng Tệp (Files) phục vụ Sideload trực tiếp trên iPhone.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
