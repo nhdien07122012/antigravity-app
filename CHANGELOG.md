@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 29 - 2026-11-16
-- **Commit:** `1fb2d87`
-- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Commit:** `7874fec`
+- **GitHub Actions Run:** `#43910755282` (success)
 - **Mục tiêu thay đổi tóm tắt:** Loại bỏ 100% icon emoji trong toàn bộ ứng dụng (cả Web UI và Native iOS), chuyển đổi sang phong cách thiết kế phẳng hiện đại (Flat UI) chuẩn Apple iOS 18 và đồng bộ hoàn toàn với hệ thống icon Heroicons chính thức (`@heroicons/react`); Bổ sung điều khoản kỷ luật thiết kế Flat UI & Heroicons vĩnh viễn vào `PROJECT_RULES.md`.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `PROJECT_RULES.md`:
@@ -36,7 +36,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 29`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 1fb2d87 --no-edit
+  git revert 7874fec --no-edit
   ```
 
 ---
