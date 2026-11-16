@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 26 - 2026-11-16
-- **Commit:** `108832a`
-- **GitHub Actions Run:** `pending`
+- **Commit:** `40c4069`
+- **GitHub Actions Run:** `#43892650873` (success)
 - **Mục tiêu thay đổi tóm tắt:** Thiết kế lại toàn diện giao diện Menu trong ứng dụng (In-App Project & Settings Menu) theo chuẩn iOS 18 Bottom Sheet hiện đại với các thẻ chức năng bo tròn trực quan, bố cục lưới thao tác nhanh (Lùi trang, Tải lại, Tải về, Toàn màn hình), thanh điều khiển phóng to (Zoom Stepper -10%/+10%/100%), công tắc thông báo hội thoại (Notification Toggle Switch) và kiểm tra chuông báo tức thì; Đồng thời chuyển đổi và đồng bộ toàn bộ hệ thống icon của ứng dụng sang chuẩn **Heroicons** chính thức (`@heroicons/react`) trên tất cả các thành phần giao diện (`FloatingDock`, `SettingsModal`, `ManageWorkspacesModal`, `IPAManagerModal`).
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `package.json` & `package-lock.json`: Cài đặt thư viện icon chuẩn `@heroicons/react`.
@@ -35,7 +35,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 26`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 108832a --no-edit
+  git revert 40c4069 --no-edit
   ```
 
 ---
