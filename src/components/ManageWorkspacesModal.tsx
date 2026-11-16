@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { X, Trash2, Edit2, Check, ExternalLink, Globe, Layers, Plus } from 'lucide-react';
+import {
+  XMarkIcon,
+  TrashIcon,
+  PencilSquareIcon,
+  CheckIcon,
+  ArrowTopRightOnSquareIcon,
+  GlobeAltIcon,
+  Squares2X2Icon,
+  PlusIcon,
+} from '@heroicons/react/24/outline';
 import { RemoteWorkspace } from '../types';
 
 interface ManageWorkspacesModalProps {
@@ -49,7 +58,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/80">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-sm">
-              <Layers className="w-4 h-4 stroke-[2.2]" />
+              <Squares2X2Icon className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
               <h3 className="text-base font-bold text-gray-900 leading-tight">Quản Lý Dự Án</h3>
@@ -62,7 +71,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-gray-900 rounded-xl hover:bg-gray-200/60 transition"
           >
-            <X className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -95,7 +104,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
                         onClick={() => saveEdit(ws)}
                         className="p-1 text-emerald-600 hover:text-emerald-800"
                       >
-                        <Check className="w-4 h-4" />
+                        <CheckIcon className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
@@ -132,7 +141,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
                     title="Đổi tên"
                     className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100"
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    <PencilSquareIcon className="w-3.5 h-3.5" />
                   </button>
 
                   <button
@@ -140,7 +149,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
                     title="Mở ngoài"
                     className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-gray-100"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
                   </button>
 
                   {workspaces.length > 1 && (
@@ -149,7 +158,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
                       title="Xóa dự án này"
                       className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <TrashIcon className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -167,7 +176,7 @@ export const ManageWorkspacesModal: React.FC<ManageWorkspacesModalProps> = ({
             }}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md transition active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" />
             <span>Quét Mã Dự Án Mới</span>
           </button>
           <button

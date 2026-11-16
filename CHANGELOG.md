@@ -4,6 +4,42 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 26 - 2026-11-16
+- **Commit:** `108832a`
+- **GitHub Actions Run:** `pending`
+- **Mục tiêu thay đổi tóm tắt:** Thiết kế lại toàn diện giao diện Menu trong ứng dụng (In-App Project & Settings Menu) theo chuẩn iOS 18 Bottom Sheet hiện đại với các thẻ chức năng bo tròn trực quan, bố cục lưới thao tác nhanh (Lùi trang, Tải lại, Tải về, Toàn màn hình), thanh điều khiển phóng to (Zoom Stepper -10%/+10%/100%), công tắc thông báo hội thoại (Notification Toggle Switch) và kiểm tra chuông báo tức thì; Đồng thời chuyển đổi và đồng bộ toàn bộ hệ thống icon của ứng dụng sang chuẩn **Heroicons** chính thức (`@heroicons/react`) trên tất cả các thành phần giao diện (`FloatingDock`, `SettingsModal`, `ManageWorkspacesModal`, `IPAManagerModal`).
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `package.json` & `package-lock.json`: Cài đặt thư viện icon chuẩn `@heroicons/react`.
+  - `src/components/SettingsModal.tsx`:
+    - Thiết kế lại hoàn toàn giao diện menu trong hiện đại (Modern In-App Menu & Control Center) với hiệu ứng kính mờ (Liquid Glass / Frosted Backdrop), thẻ thông tin bo tròn 24px, phân khu rõ ràng.
+    - Tích hợp lưới 4 thao tác nhanh (`ArrowLeftIcon`, `ArrowPathIcon`, `ArrowDownTrayIcon`, `QrCodeIcon`).
+    - Bổ sung bộ điều khiển tỉ lệ cỡ chữ & phóng to (Zoom Stepper: `MagnifyingGlassMinusIcon`, `MagnifyingGlassPlusIcon`, nút reset chuẩn 100%).
+    - Bổ sung công tắc bật/tắt nhận thông báo hoàn thành câu trả lời (`BellIcon`) và nút thử nghiệm chuông báo & rung (`SpeakerWaveIcon`).
+    - Cấu hình tài khoản email Google mặc định (`EnvelopeIcon`), duy trì đa tab trong bộ nhớ RAM (`ShieldCheckIcon`), tự động toàn màn hình (`ArrowsPointingOutIcon`), rung phản hồi xúc giác (`DevicePhoneMobileIcon`).
+    - Khu vực dọn dẹp bộ nhớ & đặt lại dữ liệu an toàn (`TrashIcon`).
+  - `src/components/FloatingDock.tsx`:
+    - Chuyển đổi 100% icon sang Heroicons (`ArrowLeftIcon`, `PlusIcon`, `AdjustmentsHorizontalIcon`, `ArrowDownTrayIcon`, `Cog6ToothIcon`, `Squares2X2Icon`, `ArrowsPointingOutIcon`, `ArrowsPointingInIcon`, `ChevronDownIcon`, `XMarkIcon`, `MagnifyingGlassPlusIcon`, `MagnifyingGlassMinusIcon`).
+    - Bổ sung nút Settings (`Cog6ToothIcon`) trực tiếp trên thanh dock.
+  - `src/components/ManageWorkspacesModal.tsx`:
+    - Đồng bộ hệ thống icon sang Heroicons (`Squares2X2Icon`, `PencilSquareIcon`, `TrashIcon`, `CheckIcon`, `PlusIcon`, `XMarkIcon`, `ArrowTopRightOnSquareIcon`, `GlobeAltIcon`).
+  - `src/components/IPAManagerModal.tsx`:
+    - Đồng bộ hệ thống icon sang Heroicons (`ArrowDownTrayIcon`, `ShareIcon`, `ArrowTopRightOnSquareIcon`, `XMarkIcon`, `CheckCircleIcon`, `SparklesIcon`, `ArrowPathIcon`, `ClipboardDocumentIcon`, `FolderArrowDownIcon`, `LinkIcon`, `GlobeAltIcon`, `RocketLaunchIcon`).
+  - `src/App.tsx`:
+    - Kết nối `SettingsModal` với `onOpenIpaManager` và `onOpenScanner` để chuyển đổi mượt mà giữa các menu.
+  - `ios/App/App/AppDelegate.swift`:
+    - Thay thế hoàn toàn `UIAlertController` cũ bằng `ModernSettingsMenuViewController` - giao diện Menu Bottom Sheet chuẩn iOS 15/18 (`sheetPresentationController` với cornerRadius 28, detents medium/large).
+    - Tạo `protocol ModernSettingsMenuDelegate` và mở rộng `MainViewController: ModernSettingsMenuDelegate`.
+    - Thiết kế giao diện thẻ Inset Grouped với header gradient, thanh 4 thẻ thao tác nhanh, bộ điều khiển Stepper phóng to, công tắc `UISwitch` cho thông báo, quản lý tab dự án hiện tại, và dọn dẹp cache.
+    - Bổ sung hỗ trợ thông điệp `openSettings` trong `WKScriptMessageHandler`.
+  - `src/version.ts`: Nâng cấp lên `Build 26` (`v1.0.0 (Build 26)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 26`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 108832a --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 25 - 2026-11-16
 - **Commit:** `d404377`
 - **GitHub Actions Run:** `#43886580426` (success)

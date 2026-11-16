@@ -143,6 +143,14 @@ export const App: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        onOpenIpaManager={() => {
+          setIsSettingsOpen(false);
+          setIsIpaManagerOpen(true);
+        }}
+        onOpenScanner={() => {
+          setIsSettingsOpen(false);
+          setIsScannerOpen(true);
+        }}
       />
 
       {/* IPA Downloader & Sideload Manager Modal */}

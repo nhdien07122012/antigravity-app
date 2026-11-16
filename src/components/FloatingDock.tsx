@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import {
-  ArrowLeft,
-  Plus,
-  Layers,
-  Maximize2,
-  Minimize2,
-  Settings,
-  X,
-  ZoomIn,
-  ZoomOut,
-  Type,
-  ChevronDown,
-  Folder,
-  Download,
-} from 'lucide-react';
+  ArrowLeftIcon,
+  PlusIcon,
+  Squares2X2Icon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
+  Cog6ToothIcon,
+  XMarkIcon,
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
+  AdjustmentsHorizontalIcon,
+  ChevronDownIcon,
+  ArrowDownTrayIcon,
+} from '@heroicons/react/24/outline';
 import { RemoteWorkspace } from '../types';
 
 interface FloatingDockProps {
@@ -71,6 +70,16 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     }
   };
 
+  const handleOpenSettings = () => {
+    if ((window as any).webkit?.messageHandlers?.antigravityNative) {
+      try {
+        (window as any).webkit.messageHandlers.antigravityNative.postMessage({ action: 'openSettings' });
+        return;
+      } catch (e) {}
+    }
+    onOpenSettings();
+  };
+
   if (isFullscreen) {
     return (
       <button
@@ -78,7 +87,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
         title="Hiển thị thanh chuyển dự án"
         className="fixed bottom-[calc(8px+env(safe-area-inset-bottom,0px))] right-4 z-40 p-2 bg-black/80 hover:bg-black text-white rounded-full shadow-2xl backdrop-blur-2xl border border-white/20 ring-1 ring-white/10 active:scale-95 transition"
       >
-        <Minimize2 className="w-4 h-4" />
+        <ArrowsPointingInIcon className="w-4 h-4" />
       </button>
     );
   }
@@ -113,7 +122,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             className="p-1 hover:bg-black/10 dark:hover:bg-white/20 rounded-full transition"
             title="Thu nhỏ"
           >
-            <ZoomOut className="w-3.5 h-3.5" />
+            <MagnifyingGlassMinusIcon className="w-3.5 h-3.5" />
           </button>
           <span className="min-w-[42px] text-center">{zoomLevel}%</span>
           <button
@@ -121,7 +130,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             className="p-1 hover:bg-black/10 dark:hover:bg-white/20 rounded-full transition"
             title="Phóng to"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <MagnifyingGlassPlusIcon className="w-3.5 h-3.5" />
           </button>
           {zoomLevel !== 100 && (
             <button
@@ -169,7 +178,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
                       isActive ? 'text-white/80 hover:text-white' : 'text-gray-400 dark:text-white/40 hover:text-white'
                     }`}
                   >
-                    <X className="w-3 h-3" />
+                    <XMarkIcon className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -177,7 +186,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
           })}
         </div>
 
-        {/* Right Actions: Back, Add Project, Zoom, Fullscreen, Collapse */}
+        {/* Right Actions: Back, Add Project, Zoom, IPA Manager, Settings Menu, Manage Tabs, Fullscreen, Collapse */}
         <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-gray-300/60 dark:border-white/15">
           {/* Back Button */}
           <button
@@ -185,7 +194,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Quay lại trang trước"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-95"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeftIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Add Project via QR */}
@@ -194,7 +203,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Quét thêm mã QR Dự án mới"
             className="flex items-center gap-0.5 px-2 py-1 bg-blue-50 dark:bg-blue-500/25 hover:bg-blue-100 dark:hover:bg-blue-500/35 text-blue-600 dark:text-blue-300 rounded-full text-xs font-bold border border-blue-200 dark:border-blue-400/30 transition active:scale-95"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
             <span className="hidden sm:inline">Thêm</span>
           </button>
 
@@ -208,7 +217,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
                 : 'text-gray-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10'
             }`}
           >
-            <Type className="w-3.5 h-3.5" />
+            <AdjustmentsHorizontalIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Download & Sideload IPA Manager */}
@@ -217,7 +226,16 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Quản lý & Tải bản cài IPA để Sideload"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <Download className="w-3.5 h-3.5" />
+            <ArrowDownTrayIcon className="w-3.5 h-3.5 stroke-[2.2]" />
+          </button>
+
+          {/* Settings Menu */}
+          <button
+            onClick={handleOpenSettings}
+            title="Cài đặt & Điều khiển nâng cao"
+            className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+          >
+            <Cog6ToothIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Manage Tabs */}
@@ -226,7 +244,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Quản lý danh sách dự án"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Squares2X2Icon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Fullscreen */}
@@ -235,7 +253,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Toàn màn hình"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <ArrowsPointingOutIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Collapse Button */}
@@ -244,7 +262,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             title="Thu gọn thanh chuyển dự án"
             className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <ChevronDown className="w-3.5 h-3.5" />
+            <ChevronDownIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
         </div>
       </div>

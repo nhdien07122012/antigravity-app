@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share2, ExternalLink, X, CheckCircle2, Sparkles, RefreshCw, Copy, Compass, FolderDown, Link2, Globe } from 'lucide-react';
+import {
+  ArrowDownTrayIcon,
+  ShareIcon,
+  ArrowTopRightOnSquareIcon,
+  XMarkIcon,
+  SparklesIcon,
+  ArrowPathIcon,
+  ClipboardDocumentIcon,
+  FolderArrowDownIcon,
+  LinkIcon,
+  GlobeAltIcon,
+  RocketLaunchIcon,
+} from '@heroicons/react/24/outline';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { FULL_VERSION } from '../version';
 
 interface IPAManagerModalProps {
@@ -155,7 +168,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-white/10">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <Download className="w-5 h-5" />
+              <ArrowDownTrayIcon className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
@@ -170,7 +183,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
-            <X className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -202,7 +215,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
         <div className="p-6 space-y-4 overflow-y-auto">
           {copyStatus && (
             <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2 animate-fadeIn">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircleIcon className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{copyStatus}</span>
             </div>
           )}
@@ -221,7 +234,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   {loading ? (
                     <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                       <span>Đang kiểm tra GitHub Releases...</span>
                     </div>
                   ) : (
@@ -239,7 +252,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
 
               {/* Sideload Guides Notice */}
               <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/50 text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-                <Sparkles className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                <SparklesIcon className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div>
                   <span className="font-bold">Quản lý tải tệp chuẩn Safari:</span> Tự động lưu vào thư mục <strong>Downloads</strong>, sẵn sàng chia sẻ 1 chạm sang <strong>TrollStore</strong>, <strong>SideStore</strong>, <strong>AltStore</strong> hoặc ứng dụng <strong>Tệp (Files)</strong>.
                 </div>
@@ -250,7 +263,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 onClick={handleDownloadClick}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-95 transition"
               >
-                <Download className="w-4 h-4" />
+                <ArrowDownTrayIcon className="w-4 h-4 stroke-[2.2]" />
                 <span>Tải Bản Cài IPA Về Máy ({release?.assetSize || '1.47 MB'})</span>
               </button>
 
@@ -259,7 +272,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 onClick={handleShare}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-md shadow-emerald-500/20 active:scale-95 transition"
               >
-                <Share2 className="w-4 h-4" />
+                <ShareIcon className="w-4 h-4 stroke-[2.2]" />
                 <span>Chia Sẻ Để Sideload (TrollStore / SideStore)</span>
               </button>
 
@@ -270,7 +283,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 border border-sky-200 dark:border-sky-900/50 text-sky-700 dark:text-sky-300 rounded-2xl font-semibold text-xs active:scale-95 transition"
               >
-                <Compass className="w-3.5 h-3.5" />
+                <RocketLaunchIcon className="w-3.5 h-3.5 stroke-[2.2]" />
                 <span>Mở Tải Qua Trình Duyệt Safari</span>
               </a>
 
@@ -279,7 +292,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 onClick={handleOpenDownloadManager}
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 rounded-2xl font-semibold text-xs transition"
               >
-                <FolderDown className="w-3.5 h-3.5" />
+                <FolderArrowDownIcon className="w-3.5 h-3.5 stroke-[2.2]" />
                 <span>Mở Trình Quản Lý Tệp Tải Về</span>
               </button>
 
@@ -288,7 +301,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 onClick={handleCopyLink}
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 font-medium text-xs transition"
               >
-                <Copy className="w-3.5 h-3.5" />
+                <ClipboardDocumentIcon className="w-3.5 h-3.5 stroke-[2.2]" />
                 <span>Sao Chép Link Tải IPA Trực Tiếp</span>
               </button>
             </>
@@ -296,7 +309,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
             /* Tab 2: Custom Project IPA Download */
             <form onSubmit={handleStartCustomDownload} className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/50 text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-                <Globe className="w-4 h-4 inline-block mr-1.5 text-blue-600 dark:text-blue-400" />
+                <GlobeAltIcon className="w-4 h-4 inline-block mr-1.5 text-blue-600 dark:text-blue-400 stroke-[2.2]" />
                 <span>
                   <strong>Tải tệp từ dự án khác:</strong> Nhập hoặc dán link URL file <code>.ipa</code>, <code>.zip</code>, <code>.deb</code> từ bất kỳ GitHub repository, TrollStore repo hoặc trang web nào.
                 </span>
@@ -311,7 +324,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                     onClick={handlePasteClipboard}
                     className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                   >
-                    <Link2 className="w-3 h-3" />
+                    <LinkIcon className="w-3 h-3 stroke-[2.2]" />
                     <span>Dán từ clipboard</span>
                   </button>
                 </div>
@@ -345,7 +358,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 disabled={!customUrl.trim()}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-95 transition"
               >
-                <Download className="w-4 h-4" />
+                <ArrowDownTrayIcon className="w-4 h-4 stroke-[2.2]" />
                 <span>Bắt Đầu Tải Về Bằng Safari Manager</span>
               </button>
 
@@ -355,7 +368,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 onClick={handleOpenDownloadManager}
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 rounded-2xl font-semibold text-xs transition"
               >
-                <FolderDown className="w-3.5 h-3.5" />
+                <FolderArrowDownIcon className="w-3.5 h-3.5 stroke-[2.2]" />
                 <span>Xem Danh Sách Tệp Đã Tải Trong Máy</span>
               </button>
             </form>
@@ -368,7 +381,7 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center gap-2 py-2 px-4 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 font-medium text-xs transition"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
+            <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 stroke-[2.2]" />
             <span>Xem Chi Tiết Bản Phát Hành Trên GitHub</span>
           </a>
         </div>

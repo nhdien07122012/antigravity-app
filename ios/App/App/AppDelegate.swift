@@ -811,83 +811,25 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         }
     }
 
-    // MARK: - Zoom, Font Size & Project Settings
+    // MARK: - Zoom, Font Size & Modern In-App Project Menu
     @objc private func handleSettingsTapped() {
-        let percent = Int(currentZoom * 100)
-        let sheet = UIAlertController(
-            title: "Cài Đặt & Điều Khiển Dự Án",
-            message: "Mức phóng to hiện tại: \(percent)%",
-            preferredStyle: .actionSheet
-        )
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let menuVC = ModernSettingsMenuViewController()
+        menuVC.delegate = self
+        menuVC.currentZoom = currentZoom
+        menuVC.activeWorkspace = workspaces.first(where: { $0.id == activeWorkspaceId })
+        menuVC.canCloseWorkspace = workspaces.count > 1
 
-        sheet.addAction(UIAlertAction(title: "🔍 Phóng to chữ & giao diện (+10%)", style: .default, handler: { _ in
-            self.adjustZoom(by: 0.1)
-        }))
-
-        sheet.addAction(UIAlertAction(title: "🔍 Thu nhỏ chữ & giao diện (-10%)", style: .default, handler: { _ in
-            self.adjustZoom(by: -0.1)
-        }))
-
-        if currentZoom != 1.0 {
-            sheet.addAction(UIAlertAction(title: "↺ Đặt lại kích thước chuẩn (100%)", style: .default, handler: { _ in
-                self.setZoom(1.0)
-            }))
+        let nav = UINavigationController(rootViewController: menuVC)
+        nav.navigationBar.isHidden = true
+        if #available(iOS 15.0, *) {
+            if let sheet = nav.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = 28
+            }
         }
-
-        if let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
-            sheet.addAction(UIAlertAction(title: "🔗 Cập nhật liên kết URL / Phiên mới", style: .default, handler: { _ in
-                self.showUpdateUrlDialog(for: active)
-            }))
-            sheet.addAction(UIAlertAction(title: "✏️ Đổi tên tab (\(active.name))", style: .default, handler: { _ in
-                self.showRenameDialog(for: active)
-            }))
-        }
-
-        sheet.addAction(UIAlertAction(title: "◀️ Quay lại trang trước", style: .default, handler: { _ in
-            self.handleGoBack()
-        }))
-
-        let notifEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
-        sheet.addAction(UIAlertAction(title: notifEnabled ? "🔔 Thông Báo Hoàn Thành: ĐANG BẬT" : "🔕 Thông Báo Hoàn Thành: ĐANG TẮT", style: .default, handler: { _ in
-            let newState = !notifEnabled
-            UserDefaults.standard.set(newState, forKey: "ag_notifications_enabled")
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        }))
-
-        sheet.addAction(UIAlertAction(title: "🎉 Thử nghiệm chuông & thông báo ngay", style: .default, handler: { _ in
-            self.triggerConversationFinishedNotification(title: "Thử nghiệm: Xây Dựng Ứng Dụng Antigravity Mobile")
-        }))
-
-        sheet.addAction(UIAlertAction(title: "🔑 Đăng nhập tài khoản Google", style: .default, handler: { _ in
-            self.navigateToGoogleLogin()
-        }))
-
-        sheet.addAction(UIAlertAction(title: "🔄 Tải lại trang này", style: .default, handler: { _ in
-            self.handleReloadActiveTab()
-        }))
-
-        sheet.addAction(UIAlertAction(title: "📥 Trình Quản Lý Tải Về & Tệp (Safari Style)", style: .default, handler: { _ in
-            self.handleIpaManagerTapped()
-        }))
-
-        if workspaces.count > 1, let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
-            sheet.addAction(UIAlertAction(title: "🗑️ Xóa tab này (\(active.name))", style: .destructive, handler: { _ in
-                self.removeWorkspace(active)
-            }))
-        }
-
-        sheet.addAction(UIAlertAction(title: "🧹 Xóa dữ liệu Cache & Phiên cũ", style: .destructive, handler: { _ in
-            self.clearCacheAndReload()
-        }))
-
-        sheet.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-
-        if let popover = sheet.popoverPresentationController {
-            popover.sourceView = settingsButton
-            popover.sourceRect = settingsButton.bounds
-        }
-
-        present(sheet, animated: true)
+        present(nav, animated: true)
     }
 
     private func updateDockDownloadBadge(activeCount: Int) {
@@ -1041,6 +983,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     DispatchQueue.main.async {
                         self.triggerConversationFinishedNotification(title: title)
                     }
+                } else if action == "openSettings" {
+                    DispatchQueue.main.async {
+                        self.handleSettingsTapped()
+                    }
                 }
             } else if let action = message.body as? String {
                 if action == "openIpaManager" || action == "openDownloadManager" {
@@ -1048,6 +994,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 } else if action == "goBack" {
                     DispatchQueue.main.async {
                         self.handleGoBack()
+                    }
+                } else if action == "openSettings" {
+                    DispatchQueue.main.async {
+                        self.handleSettingsTapped()
                     }
                 }
             }
@@ -2261,4 +2211,742 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
 
 // Backward compatibility alias
 typealias IPAManagerViewController = SafariDownloadManagerViewController
+
+// MARK: - Modern Settings Menu Delegate Protocol
+protocol ModernSettingsMenuDelegate: AnyObject {
+    func menuDidRequestGoBack()
+    func menuDidRequestReload()
+    func menuDidRequestIpaManager()
+    func menuDidRequestToggleFullscreen()
+    func menuDidAdjustZoom(by delta: CGFloat)
+    func menuDidSetZoom(_ zoom: CGFloat)
+    func menuDidTriggerTestNotification()
+    func menuDidRequestGoogleLogin()
+    func menuDidRequestRename(for ws: RemoteWorkspace)
+    func menuDidRequestUpdateUrl(for ws: RemoteWorkspace)
+    func menuDidRequestCloseWorkspace(_ ws: RemoteWorkspace)
+    func menuDidRequestClearCache()
+}
+
+// MARK: - MainViewController Extension for Modern Settings Menu
+extension MainViewController: ModernSettingsMenuDelegate {
+    func menuDidRequestGoBack() {
+        handleGoBack()
+    }
+    func menuDidRequestReload() {
+        handleReloadActiveTab()
+    }
+    func menuDidRequestIpaManager() {
+        handleIpaManagerTapped()
+    }
+    func menuDidRequestToggleFullscreen() {
+        toggleFullscreen()
+    }
+    func menuDidAdjustZoom(by delta: CGFloat) {
+        adjustZoom(by: delta)
+    }
+    func menuDidSetZoom(_ zoom: CGFloat) {
+        setZoom(zoom)
+    }
+    func menuDidTriggerTestNotification() {
+        triggerConversationFinishedNotification(title: "Thử nghiệm: Xây Dựng Ứng Dụng Antigravity Mobile")
+    }
+    func menuDidRequestGoogleLogin() {
+        navigateToGoogleLogin()
+    }
+    func menuDidRequestRename(for ws: RemoteWorkspace) {
+        showRenameDialog(for: ws)
+    }
+    func menuDidRequestUpdateUrl(for ws: RemoteWorkspace) {
+        showUpdateUrlDialog(for: ws)
+    }
+    func menuDidRequestCloseWorkspace(_ ws: RemoteWorkspace) {
+        removeWorkspace(ws)
+    }
+    func menuDidRequestClearCache() {
+        clearCacheAndReload()
+    }
+}
+
+// MARK: - Modern In-App Settings & Project Menu Sheet
+class ModernSettingsMenuViewController: UIViewController {
+    weak var delegate: ModernSettingsMenuDelegate?
+    var currentZoom: CGFloat = 1.0
+    var activeWorkspace: RemoteWorkspace?
+    var canCloseWorkspace: Bool = false
+
+    private let scrollView = UIScrollView()
+    private let contentStack = UIStackView()
+    private let zoomValueLabel = UILabel()
+    private let notifSwitch = UISwitch()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupUI()
+    }
+
+    private func setupUI() {
+        view.backgroundColor = .systemGroupedBackground
+
+        // Top Navigation Header
+        let headerView = UIView()
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerView)
+
+        let iconContainer = UIView()
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
+        iconContainer.layer.cornerRadius = 12
+        iconContainer.clipsToBounds = true
+        headerView.addSubview(iconContainer)
+
+        let iconImageView = UIImageView(image: UIImage(systemName: "gearshape.fill"))
+        iconImageView.tintColor = .white
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.addSubview(iconImageView)
+
+        let titleStack = UIStackView()
+        titleStack.axis = .vertical
+        titleStack.spacing = 1
+        titleStack.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(titleStack)
+
+        let titleLabel = UILabel()
+        titleLabel.text = "Cài Đặt & Điều Khiển"
+        titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
+        titleLabel.textColor = .label
+        titleStack.addArrangedSubview(titleLabel)
+
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 26)"
+        subtitleLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        subtitleLabel.textColor = .secondaryLabel
+        titleStack.addArrangedSubview(subtitleLabel)
+
+        let closeButton = UIButton(type: .system)
+        let closeConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        closeButton.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: closeConfig), for: .normal)
+        closeButton.tintColor = .systemGray3
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(handleDismiss), for: .touchUpInside)
+        headerView.addSubview(closeButton)
+
+        // ScrollView & Content Stack
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.alwaysBounceVertical = true
+        view.addSubview(scrollView)
+
+        contentStack.axis = .vertical
+        contentStack.spacing = 14
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(contentStack)
+
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),
+            headerView.heightAnchor.constraint(equalToConstant: 44),
+
+            iconContainer.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
+            iconContainer.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            iconContainer.widthAnchor.constraint(equalToConstant: 38),
+            iconContainer.heightAnchor.constraint(equalToConstant: 38),
+
+            iconImageView.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            iconImageView.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 20),
+            iconImageView.heightAnchor.constraint(equalToConstant: 20),
+
+            titleStack.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
+            titleStack.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            titleStack.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -8),
+
+            closeButton.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
+            closeButton.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            closeButton.widthAnchor.constraint(equalToConstant: 32),
+            closeButton.heightAnchor.constraint(equalToConstant: 32),
+
+            scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 10),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            contentStack.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 6),
+            contentStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
+            contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
+            contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -24),
+            contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
+        ])
+
+        buildQuickActions()
+        buildZoomSection()
+        buildNotificationSection()
+        buildWorkspaceSection()
+        buildSystemSection()
+    }
+
+    @objc private func handleDismiss() {
+        dismiss(animated: true)
+    }
+
+    // MARK: - Section 1: Quick Actions (Grid of 4 cards)
+    private func buildQuickActions() {
+        let titleLabel = createSectionTitle("THAO TÁC NHANH")
+        contentStack.addArrangedSubview(titleLabel)
+
+        let gridStack = UIStackView()
+        gridStack.axis = .horizontal
+        gridStack.distribution = .fillEqually
+        gridStack.spacing = 10
+        gridStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let backCard = createQuickActionCard(
+            title: "Lùi Trang",
+            iconName: "chevron.backward",
+            bgColor: UIColor.systemBlue.withAlphaComponent(0.12),
+            tintColor: .systemBlue,
+            action: #selector(quickBackTapped)
+        )
+        let reloadCard = createQuickActionCard(
+            title: "Tải Lại",
+            iconName: "arrow.clockwise",
+            bgColor: UIColor.systemIndigo.withAlphaComponent(0.12),
+            tintColor: .systemIndigo,
+            action: #selector(quickReloadTapped)
+        )
+        let downloadCard = createQuickActionCard(
+            title: "Tải Về",
+            iconName: "arrow.down.circle",
+            bgColor: UIColor.systemGreen.withAlphaComponent(0.12),
+            tintColor: .systemGreen,
+            action: #selector(quickDownloadTapped)
+        )
+        let fullscreenCard = createQuickActionCard(
+            title: "Toàn Màn",
+            iconName: "arrow.up.left.and.arrow.down.right",
+            bgColor: UIColor.systemGray.withAlphaComponent(0.12),
+            tintColor: .label,
+            action: #selector(quickFullscreenTapped)
+        )
+
+        gridStack.addArrangedSubview(backCard)
+        gridStack.addArrangedSubview(reloadCard)
+        gridStack.addArrangedSubview(downloadCard)
+        gridStack.addArrangedSubview(fullscreenCard)
+
+        contentStack.addArrangedSubview(gridStack)
+    }
+
+    private func createQuickActionCard(title: String, iconName: String, bgColor: UIColor, tintColor: UIColor, action: Selector) -> UIView {
+        let card = UIButton(type: .system)
+        card.backgroundColor = .secondarySystemGroupedBackground
+        card.layer.cornerRadius = 16
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOpacity = 0.05
+        card.layer.shadowRadius = 4
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.addTarget(self, action: action, for: .touchUpInside)
+
+        let badge = UIView()
+        badge.isUserInteractionEnabled = false
+        badge.backgroundColor = bgColor
+        badge.layer.cornerRadius = 10
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(badge)
+
+        let iv = UIImageView(image: UIImage(systemName: iconName))
+        iv.tintColor = tintColor
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        badge.addSubview(iv)
+
+        let lbl = UILabel()
+        lbl.text = title
+        lbl.font = .systemFont(ofSize: 11, weight: .bold)
+        lbl.textColor = .label
+        lbl.textAlignment = .center
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(lbl)
+
+        NSLayoutConstraint.activate([
+            card.heightAnchor.constraint(equalToConstant: 74),
+
+            badge.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
+            badge.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            badge.widthAnchor.constraint(equalToConstant: 32),
+            badge.heightAnchor.constraint(equalToConstant: 32),
+
+            iv.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
+            iv.widthAnchor.constraint(equalToConstant: 16),
+            iv.heightAnchor.constraint(equalToConstant: 16),
+
+            lbl.topAnchor.constraint(equalTo: badge.bottomAnchor, constant: 6),
+            lbl.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 4),
+            lbl.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -4)
+        ])
+
+        return card
+    }
+
+    @objc private func quickBackTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestGoBack()
+        }
+    }
+
+    @objc private func quickReloadTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestReload()
+        }
+    }
+
+    @objc private func quickDownloadTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestIpaManager()
+        }
+    }
+
+    @objc private func quickFullscreenTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestToggleFullscreen()
+        }
+    }
+
+    // MARK: - Section 2: Zoom Stepper Control
+    private func buildZoomSection() {
+        let card = createCardView()
+
+        let rowStack = UIStackView()
+        rowStack.axis = .horizontal
+        rowStack.alignment = .center
+        rowStack.distribution = .equalSpacing
+        rowStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(rowStack)
+
+        let leftStack = UIStackView()
+        leftStack.axis = .horizontal
+        leftStack.spacing = 12
+        leftStack.alignment = .center
+
+        let badge = createIconBadge(iconName: "magnifyingglass", bgColor: UIColor.systemBlue.withAlphaComponent(0.12), tintColor: .systemBlue)
+        leftStack.addArrangedSubview(badge)
+
+        let textStack = UIStackView()
+        textStack.axis = .vertical
+        textStack.spacing = 1
+
+        let title = UILabel()
+        title.text = "Cỡ Chữ & Phóng To"
+        title.font = .systemFont(ofSize: 14, weight: .bold)
+        title.textColor = .label
+        textStack.addArrangedSubview(title)
+
+        let percent = Int(currentZoom * 100)
+        zoomValueLabel.text = "Tỉ lệ: \(percent)%"
+        zoomValueLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        zoomValueLabel.textColor = .secondaryLabel
+        textStack.addArrangedSubview(zoomValueLabel)
+
+        leftStack.addArrangedSubview(textStack)
+        rowStack.addArrangedSubview(leftStack)
+
+        // Stepper Buttons
+        let stepperStack = UIStackView()
+        stepperStack.axis = .horizontal
+        stepperStack.spacing = 6
+        stepperStack.alignment = .center
+
+        let minusBtn = createStepperButton(title: "-10%", action: #selector(handleZoomMinus))
+        let resetBtn = createStepperButton(title: "100%", isAccent: true, action: #selector(handleZoomReset))
+        let plusBtn = createStepperButton(title: "+10%", action: #selector(handleZoomPlus))
+
+        stepperStack.addArrangedSubview(minusBtn)
+        stepperStack.addArrangedSubview(resetBtn)
+        stepperStack.addArrangedSubview(plusBtn)
+        rowStack.addArrangedSubview(stepperStack)
+
+        NSLayoutConstraint.activate([
+            rowStack.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
+            rowStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
+            rowStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+            rowStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14)
+        ])
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    private func createStepperButton(title: String, isAccent: Bool = false, action: Selector) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.setTitle(title, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 11, weight: .bold)
+        btn.backgroundColor = isAccent ? UIColor.systemBlue.withAlphaComponent(0.12) : UIColor.systemGray.withAlphaComponent(0.12)
+        btn.tintColor = isAccent ? .systemBlue : .label
+        btn.layer.cornerRadius = 8
+        btn.contentEdgeInsets = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+        btn.addTarget(self, action: action, for: .touchUpInside)
+        return btn
+    }
+
+    @objc private func handleZoomMinus() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        currentZoom = max(0.7, currentZoom - 0.1)
+        updateZoomDisplay()
+        delegate?.menuDidAdjustZoom(by: -0.1)
+    }
+
+    @objc private func handleZoomPlus() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        currentZoom = min(2.0, currentZoom + 0.1)
+        updateZoomDisplay()
+        delegate?.menuDidAdjustZoom(by: 0.1)
+    }
+
+    @objc private func handleZoomReset() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        currentZoom = 1.0
+        updateZoomDisplay()
+        delegate?.menuDidSetZoom(1.0)
+    }
+
+    private func updateZoomDisplay() {
+        let percent = Int(currentZoom * 100)
+        zoomValueLabel.text = "Tỉ lệ: \(percent)%"
+    }
+
+    // MARK: - Section 3: Notification & Interaction
+    private func buildNotificationSection() {
+        let titleLabel = createSectionTitle("THÔNG BÁO HOÀN THÀNH")
+        contentStack.addArrangedSubview(titleLabel)
+
+        let card = createCardView()
+        let cardStack = UIStackView()
+        cardStack.axis = .vertical
+        cardStack.spacing = 0
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(cardStack)
+
+        // Row 1: Notification Switch
+        let switchRow = UIView()
+        let switchStack = UIStackView()
+        switchStack.axis = .horizontal
+        switchStack.alignment = .center
+        switchStack.distribution = .equalSpacing
+        switchStack.translatesAutoresizingMaskIntoConstraints = false
+        switchRow.addSubview(switchStack)
+
+        let leftStack = UIStackView()
+        leftStack.axis = .horizontal
+        leftStack.spacing = 12
+        leftStack.alignment = .center
+
+        let badge = createIconBadge(iconName: "bell.fill", bgColor: UIColor.systemPurple.withAlphaComponent(0.12), tintColor: .systemPurple)
+        leftStack.addArrangedSubview(badge)
+
+        let textStack = UIStackView()
+        textStack.axis = .vertical
+        textStack.spacing = 2
+
+        let rowTitle = UILabel()
+        rowTitle.text = "Thông Báo Khi Có Kết Quả"
+        rowTitle.font = .systemFont(ofSize: 14, weight: .bold)
+        rowTitle.textColor = .label
+        textStack.addArrangedSubview(rowTitle)
+
+        let rowSubtitle = UILabel()
+        rowSubtitle.text = "Chuông báo, rung & biểu ngữ khi xong phản hồi"
+        rowSubtitle.font = .systemFont(ofSize: 11, weight: .regular)
+        rowSubtitle.textColor = .secondaryLabel
+        textStack.addArrangedSubview(rowSubtitle)
+
+        leftStack.addArrangedSubview(textStack)
+        switchStack.addArrangedSubview(leftStack)
+
+        let notifEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
+        notifSwitch.isOn = notifEnabled
+        notifSwitch.onTintColor = .systemPurple
+        notifSwitch.addTarget(self, action: #selector(handleNotificationToggle), for: .valueChanged)
+        switchStack.addArrangedSubview(notifSwitch)
+
+        NSLayoutConstraint.activate([
+            switchStack.topAnchor.constraint(equalTo: switchRow.topAnchor, constant: 12),
+            switchStack.bottomAnchor.constraint(equalTo: switchRow.bottomAnchor, constant: -12),
+            switchStack.leadingAnchor.constraint(equalTo: switchRow.leadingAnchor, constant: 14),
+            switchStack.trailingAnchor.constraint(equalTo: switchRow.trailingAnchor, constant: -14)
+        ])
+
+        cardStack.addArrangedSubview(switchRow)
+
+        // Divider
+        let divider = createDivider()
+        cardStack.addArrangedSubview(divider)
+
+        // Row 2: Test chime & toast button
+        let testRow = createRowButton(
+            iconName: "speaker.wave.2.fill",
+            title: "🎉 Thử Nghiệm Chuông & Biểu Ngữ Ngay",
+            badgeBgColor: UIColor.systemPurple.withAlphaComponent(0.12),
+            badgeTintColor: .systemPurple,
+            isDestructive: false,
+            action: #selector(handleTestNotificationTapped)
+        )
+        cardStack.addArrangedSubview(testRow)
+
+        NSLayoutConstraint.activate([
+            cardStack.topAnchor.constraint(equalTo: card.topAnchor),
+            cardStack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            cardStack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            cardStack.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+        ])
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    @objc private func handleNotificationToggle() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        UserDefaults.standard.set(notifSwitch.isOn, forKey: "ag_notifications_enabled")
+    }
+
+    @objc private func handleTestNotificationTapped() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        delegate?.menuDidTriggerTestNotification()
+    }
+
+    // MARK: - Section 4: Workspace Tab & Google
+    private func buildWorkspaceSection() {
+        let wsName = activeWorkspace?.name ?? "Dự Án Hiện Tại"
+        let titleLabel = createSectionTitle("TAB HIỆN TẠI (\(wsName))")
+        contentStack.addArrangedSubview(titleLabel)
+
+        let card = createCardView()
+        let cardStack = UIStackView()
+        cardStack.axis = .vertical
+        cardStack.spacing = 0
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(cardStack)
+
+        // Row: Rename
+        let renameRow = createRowButton(
+            iconName: "pencil",
+            title: "Đổi Tên Tab Dự Án",
+            badgeBgColor: UIColor.systemBlue.withAlphaComponent(0.12),
+            badgeTintColor: .systemBlue,
+            action: #selector(handleRenameTapped)
+        )
+        cardStack.addArrangedSubview(renameRow)
+        cardStack.addArrangedSubview(createDivider())
+
+        // Row: Update URL
+        let urlRow = createRowButton(
+            iconName: "link",
+            title: "Cập Nhật Liên Kết URL / Phiên Mới",
+            badgeBgColor: UIColor.systemTeal.withAlphaComponent(0.12),
+            badgeTintColor: .systemTeal,
+            action: #selector(handleUpdateUrlTapped)
+        )
+        cardStack.addArrangedSubview(urlRow)
+        cardStack.addArrangedSubview(createDivider())
+
+        // Row: Google Login
+        let loginRow = createRowButton(
+            iconName: "person.crop.circle.badge.checkmark",
+            title: "Đăng Nhập Tài Khoản Google",
+            badgeBgColor: UIColor.systemIndigo.withAlphaComponent(0.12),
+            badgeTintColor: .systemIndigo,
+            action: #selector(handleGoogleLoginTapped)
+        )
+        cardStack.addArrangedSubview(loginRow)
+
+        // Row: Close Tab (if multiple)
+        if canCloseWorkspace, let ws = activeWorkspace {
+            cardStack.addArrangedSubview(createDivider())
+            let closeRow = createRowButton(
+                iconName: "trash",
+                title: "Đóng Tab Dự Án Này",
+                badgeBgColor: UIColor.systemRed.withAlphaComponent(0.12),
+                badgeTintColor: .systemRed,
+                isDestructive: true,
+                action: #selector(handleCloseTabTapped)
+            )
+            cardStack.addArrangedSubview(closeRow)
+        }
+
+        NSLayoutConstraint.activate([
+            cardStack.topAnchor.constraint(equalTo: card.topAnchor),
+            cardStack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            cardStack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            cardStack.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+        ])
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    @objc private func handleRenameTapped() {
+        guard let ws = activeWorkspace else { return }
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestRename(for: ws)
+        }
+    }
+
+    @objc private func handleUpdateUrlTapped() {
+        guard let ws = activeWorkspace else { return }
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestUpdateUrl(for: ws)
+        }
+    }
+
+    @objc private func handleGoogleLoginTapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestGoogleLogin()
+        }
+    }
+
+    @objc private func handleCloseTabTapped() {
+        guard let ws = activeWorkspace else { return }
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestCloseWorkspace(ws)
+        }
+    }
+
+    // MARK: - Section 5: System & Cache
+    private func buildSystemSection() {
+        let titleLabel = createSectionTitle("BỘ NHỚ & HỆ THỐNG")
+        contentStack.addArrangedSubview(titleLabel)
+
+        let card = createCardView()
+        let cardStack = UIStackView()
+        cardStack.axis = .vertical
+        cardStack.spacing = 0
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(cardStack)
+
+        let clearCacheRow = createRowButton(
+            iconName: "arrow.triangle.2.circlepath",
+            title: "Xóa Dữ Liệu Cache & Phiên Cũ",
+            badgeBgColor: UIColor.systemRed.withAlphaComponent(0.12),
+            badgeTintColor: .systemRed,
+            isDestructive: true,
+            action: #selector(handleClearCacheTapped)
+        )
+        cardStack.addArrangedSubview(clearCacheRow)
+
+        NSLayoutConstraint.activate([
+            cardStack.topAnchor.constraint(equalTo: card.topAnchor),
+            cardStack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            cardStack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            cardStack.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+        ])
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    @objc private func handleClearCacheTapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestClearCache()
+        }
+    }
+
+    // MARK: - Helpers
+    private func createCardView() -> UIView {
+        let card = UIView()
+        card.backgroundColor = .secondarySystemGroupedBackground
+        card.layer.cornerRadius = 18
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOpacity = 0.04
+        card.layer.shadowRadius = 4
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.clipsToBounds = true
+        return card
+    }
+
+    private func createSectionTitle(_ text: String) -> UILabel {
+        let lbl = UILabel()
+        lbl.text = text
+        lbl.font = .systemFont(ofSize: 11, weight: .bold)
+        lbl.textColor = .secondaryLabel
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }
+
+    private func createIconBadge(iconName: String, bgColor: UIColor, tintColor: UIColor) -> UIView {
+        let badge = UIView()
+        badge.backgroundColor = bgColor
+        badge.layer.cornerRadius = 9
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            badge.widthAnchor.constraint(equalToConstant: 32),
+            badge.heightAnchor.constraint(equalToConstant: 32)
+        ])
+
+        let iv = UIImageView(image: UIImage(systemName: iconName))
+        iv.tintColor = tintColor
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        badge.addSubview(iv)
+
+        NSLayoutConstraint.activate([
+            iv.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
+            iv.widthAnchor.constraint(equalToConstant: 16),
+            iv.heightAnchor.constraint(equalToConstant: 16)
+        ])
+
+        return badge
+    }
+
+    private func createRowButton(iconName: String, title: String, badgeBgColor: UIColor, badgeTintColor: UIColor, isDestructive: Bool = false, action: Selector) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.addTarget(self, action: action, for: .touchUpInside)
+
+        let rowStack = UIStackView()
+        rowStack.axis = .horizontal
+        rowStack.alignment = .center
+        rowStack.spacing = 12
+        rowStack.isUserInteractionEnabled = false
+        rowStack.translatesAutoresizingMaskIntoConstraints = false
+        btn.addSubview(rowStack)
+
+        let badge = createIconBadge(iconName: iconName, bgColor: badgeBgColor, tintColor: badgeTintColor)
+        rowStack.addArrangedSubview(badge)
+
+        let lbl = UILabel()
+        lbl.text = title
+        lbl.font = .systemFont(ofSize: 14, weight: isDestructive ? .bold : .semibold)
+        lbl.textColor = isDestructive ? .systemRed : .label
+        rowStack.addArrangedSubview(lbl)
+
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = .systemGray4
+        chevron.contentMode = .scaleAspectFit
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            chevron.widthAnchor.constraint(equalToConstant: 12),
+            chevron.heightAnchor.constraint(equalToConstant: 12)
+        ])
+        rowStack.addArrangedSubview(chevron)
+
+        NSLayoutConstraint.activate([
+            btn.heightAnchor.constraint(equalToConstant: 48),
+            rowStack.leadingAnchor.constraint(equalTo: btn.leadingAnchor, constant: 14),
+            rowStack.trailingAnchor.constraint(equalTo: btn.trailingAnchor, constant: -14),
+            rowStack.centerYAnchor.constraint(equalTo: btn.centerYAnchor)
+        ])
+
+        return btn
+    }
+
+    private func createDivider() -> UIView {
+        let line = UIView()
+        line.backgroundColor = .separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+        line.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
+        return line
+    }
+}
+
 
