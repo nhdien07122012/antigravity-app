@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 3 - 2026-11-16
-- **Commit:** `PENDING_COMMIT` (sẽ được gắn SHA ngay sau khi commit)
+- **Commit:** `025c0c0`
 - **Mục tiêu thay đổi tóm tắt:** Chuyển đổi toàn diện sang giao diện sáng (Light Theme) tinh tế chuẩn Apple/ChatGPT, tăng kích thước font chữ (15px-16px) và độ tương phản cao giúp dễ đọc trên iPhone và máy tính.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `index.html`: Cập nhật class `light` và `theme-color: #ffffff`.
