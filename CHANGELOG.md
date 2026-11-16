@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 7 - 2026-11-16
-- **Commit:** `c65720e`
+- **Commit:** `46121fe`
 - **Mục tiêu thay đổi tóm tắt:** Thiết lập quy trình tự động build file `.ipa` qua GitHub Actions tạo GitHub Release với link tải trực tiếp; bổ sung icon PWA và Web App Manifest cho trải nghiệm native tức thì trên Safari iOS.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `.github/workflows/build-ipa.yml`: Bổ sung quyền ghi (`permissions: contents: write`), tích hợp `softprops/action-gh-release@v2` tự động xuất bản gói `AntigravityMobile.ipa` lên GitHub Release và cấp link tải trực tiếp công khai cho iPhone.
@@ -16,7 +16,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 7`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert c65720e --no-edit
+  git revert 46121fe --no-edit
   ```
 
 ---
