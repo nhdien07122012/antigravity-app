@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 27 - 2026-11-16
-- **Commit:** `b8d438f`
-- **GitHub Actions Run:** `pending`
+- **Commit:** `51f5f18`
+- **GitHub Actions Run:** `#43899466322` (success)
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi không tự động load dữ liệu mới nhất khi chuyển đa nhiệm (Background Multitasking) bằng cơ chế giữ kết nối nền (Background Keep-Alive Task) và tự động đồng bộ làm mới dữ liệu khi mở lại app (Auto-Sync on Resume); Đồng thời cập nhật hệ thống thông báo hiển thị nổi bật **Tên của Project** (thay vì tên của conversation) trên cả biểu ngữ Toast Banner trong ứng dụng và thông báo đẩy hệ thống iOS (UNUserNotificationCenter).
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -30,7 +30,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 27`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert b8d438f --no-edit
+  git revert 51f5f18 --no-edit
   ```
 
 ---
