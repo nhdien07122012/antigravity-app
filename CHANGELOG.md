@@ -4,6 +4,29 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 11 - 2026-11-16
+- **Commit:** `9bfa618`
+- **Mục tiêu thay đổi tóm tắt:** Chuyển đổi toàn diện dự án (Strategic Pivot) thành **Bộ Chứa Đa Dự Án Native Cho Google Antigravity Remote** trên iOS (.ipa); tích hợp Camera QR Scanner & Link Importer; áp dụng cơ chế Zero-Reload Keep-Alive Frame Engine duy trì đồng thời nhiều phiên dự án trong RAM không cần tải lại và không ngắt kết nối WebSocket/WebRTC; dọn sạch toàn bộ mã nguồn mô phỏng cũ.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `src/types/index.ts`: Tái cấu trúc hoàn toàn định nghĩa kiểu dữ liệu `RemoteWorkspace` và `AppSettings`.
+  - `src/services/workspaceStore.ts`: Xây dựng module lưu trữ dữ liệu liên tục với `@capacitor/preferences`, bộ giải mã thông minh URL kết nối Google Remote trích xuất `sessionId` và `Email`.
+  - `src/components/KeepAliveContainer.tsx`: Động cơ giữ phiên hoạt động trong bộ nhớ RAM, ẩn hiện bằng CSS state giúp chuyển đổi giữa các dự án tức thì 0ms, bảo toàn vị trí cuộn và trạng thái luồng chat WebSocket với Google Cloud.
+  - `src/components/FloatingDock.tsx`: Thanh công cụ nổi chuẩn giao diện iOS Glassmorphism, chuyển đổi tab mượt mà, hỗ trợ thêm dự án mới, ẩn toàn màn hình và mở cài đặt.
+  - `src/components/CameraQRScanner.tsx`: Máy quét mã QR trực tiếp qua camera sau của iPhone (`html5-qrcode`), hiệu ứng rung Haptics (`@capacitor/haptics`), tự động điền và ghép nối nhanh bằng clipboard.
+  - `src/components/ManageWorkspacesModal.tsx`: Hộp thoại quản lý đa dự án, đổi tên phiên làm việc, xóa tab, mở tab ngoài Safari.
+  - `src/components/SettingsModal.tsx`: Hộp thoại cấu hình email Google mặc định, kích hoạt Zero-Reload Keep-Alive, và rung phản hồi.
+  - `src/App.tsx`: Tái lập trình file gốc ứng dụng thành bộ chứa đa dự án tối giản, tốc độ cao.
+  - Dọn dẹp triệt để 14 tệp thành phần mô phỏng cũ không còn sử dụng (`ApprovalBanner`, `ArtifactModal`, `ChatCanvas`, `Header`, `InputArea`, `LiveRemoteModal`, `QRScannerModal`, `Sidebar`, `ThinkingBlock`, `ToolExecutionCard`, `WidgetPreviewModal`, `antigravityClient`, `storage`, `widgetBridge`).
+  - `scripts/sync-ios.js`: Tối ưu hóa chu trình build: tăng version trước -> build web bundle -> sync native iOS.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 11` (`v1.0.0 (Build 11)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 11`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 9bfa618 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 10 - 2026-11-16
 - **Commit:** `25b4681`
 - **Mục tiêu thay đổi tóm tắt:** Kích hoạt cơ chế Real-time Live Synchronization tự động đồng bộ tức thì các tin nhắn, khối tư duy (*thinking*), và công cụ (*tool execution*) giữa phiên làm việc Google Remote Control / Antigravity host và ứng dụng di động; bổ sung huy hiệu trạng thái `● Realtime Live` tại Header.
