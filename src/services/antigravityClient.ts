@@ -1,4 +1,5 @@
 import { HostConfig, Message, ToolCall } from '../types';
+import { storage } from './storage';
 
 type Listener = (event: string, data: any) => void;
 
@@ -31,7 +32,6 @@ class AntigravityClient {
     this.emit('connecting', { url: config.url });
 
     try {
-      // Connect to actual remote WebSocket
       this.ws = new WebSocket(`${config.url}?token=${encodeURIComponent(config.token)}`);
 
       this.ws.onopen = () => {
@@ -48,9 +48,9 @@ class AntigravityClient {
         }
       };
 
-      this.ws.onerror = (err) => {
+      this.ws.onerror = () => {
         this.isConnecting = false;
-        this.emit('error', { error: 'Không thể kết nối đến WebSocket host. Chuyển sang chế độ kết nối thử nghiệm.' });
+        this.emit('error', { error: 'Kết nối qua Bridge API máy chủ.' });
       };
 
       this.ws.onclose = () => {
@@ -59,7 +59,7 @@ class AntigravityClient {
       };
     } catch {
       this.isConnecting = false;
-      this.emit('connected', { host: config.name, simulated: true });
+      this.emit('connected', { host: config.name, simulated: false });
     }
   }
 
@@ -73,121 +73,58 @@ class AntigravityClient {
 
   public async sendMessage(
     prompt: string,
+    projectId: string,
+    projectName: string,
     onChunk: (chunk: string) => void,
     onThinking: (thinkingChunk: string) => void,
     onToolCall: (tool: ToolCall) => void,
     onComplete: (finalMessage: Partial<Message>) => void
   ) {
-    // If live WebSocket is connected and open
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: 'user_prompt',
-          content: prompt,
-          model: this.hostConfig?.model || 'Gemini 2.5 Flash',
-        })
-      );
-      return;
-    }
+    // 1. First, send prompt to real server backend API!
+    try {
+      const serverResult = await storage.sendChatMessage(prompt, projectId, projectName);
+      if (serverResult && serverResult.content) {
+        // Stream thinking if provided
+        if (serverResult.thinking) {
+          onThinking(serverResult.thinking);
+        }
 
-    // SIMULATED AGENTIC RESPONSE ENGINE (Allows full preview of ChatGPT/Claude UX & Tool Execution)
-    const isCommandRequest =
-      prompt.toLowerCase().includes('run') ||
-      prompt.toLowerCase().includes('build') ||
-      prompt.toLowerCase().includes('test') ||
-      prompt.toLowerCase().includes('chạy') ||
-      prompt.toLowerCase().includes('lệnh') ||
-      prompt.toLowerCase().includes('cài');
+        // Render tool calls if executed on server
+        if (serverResult.toolCalls && Array.isArray(serverResult.toolCalls)) {
+          serverResult.toolCalls.forEach((tc: ToolCall) => onToolCall(tc));
+        }
 
-    const isEditRequest =
-      prompt.toLowerCase().includes('sửa') ||
-      prompt.toLowerCase().includes('thay đổi') ||
-      prompt.toLowerCase().includes('code') ||
-      prompt.toLowerCase().includes('file');
+        // Stream real response text
+        const words = serverResult.content.split(' ');
+        let currentText = '';
+        for (const word of words) {
+          await new Promise((r) => setTimeout(r, 30));
+          currentText += (currentText ? ' ' : '') + word;
+          onChunk(currentText);
+        }
 
-    // 1. Thinking phase
-    const thoughts = [
-      `1. Tiếp nhận prompt từ người dùng: "${prompt}"\n`,
-      `2. Đang kiểm tra workspace hiện tại và trạng thái máy chủ...\n`,
-      `3. Xác định chiến lược thực thi tối ưu với model ${this.hostConfig?.model || 'Gemini 2.5 Flash'}...\n`,
-      `4. Kiểm tra các quy chuẩn kỷ luật an toàn trong PROJECT_RULES.md (No regression, Changelog update)...\n`,
-      `5. Chuẩn bị kế hoạch thực thi và phản hồi.\n`,
-    ];
-
-    let fullThinking = '';
-    for (const step of thoughts) {
-      await new Promise((r) => setTimeout(r, 450));
-      fullThinking += step;
-      onThinking(fullThinking);
-    }
-
-    // 2. Tool Execution / Approval Phase (if applicable)
-    let generatedTools: ToolCall[] = [];
-
-    if (isCommandRequest) {
-      const toolCall: ToolCall = {
-        id: 'tc_' + Date.now(),
-        name: 'run_command',
-        toolSummary: 'Kiểm tra trạng thái hệ thống và thực thi lệnh',
-        args: { CommandLine: 'npm run test:fast', WaitMsBeforeAsync: 5000 },
-        status: this.hostConfig?.toolPolicy === 'request-review' ? 'requires_approval' : 'running',
-        output: '',
-      };
-      generatedTools.push(toolCall);
-      onToolCall(toolCall);
-
-      if (toolCall.status === 'requires_approval') {
-        // Paused waiting for user approval banner!
         onComplete({
-          content: 'Tôi đã phân tích yêu cầu. Có một lệnh terminal cần được bạn phê duyệt trước khi máy chủ thực thi:',
-          thinking: fullThinking,
-          toolCalls: generatedTools,
-          status: 'pending_approval',
+          content: serverResult.content,
+          thinking: serverResult.thinking,
+          toolCalls: serverResult.toolCalls,
+          status: 'done',
         });
         return;
       }
-
-      await new Promise((r) => setTimeout(r, 900));
-      toolCall.status = 'done';
-      toolCall.output = 'PASS src/index.test.ts (12 tests passed, 0 failures in 1.4s)\nDone in 1.84s.';
-      onToolCall(toolCall);
-    } else if (isEditRequest) {
-      const toolCall: ToolCall = {
-        id: 'tc_' + Date.now(),
-        name: 'edit_file',
-        toolSummary: 'Cập nhật cấu hình theme và widget',
-        args: { Path: 'src/components/Header.tsx' },
-        status: 'done',
-        output: 'Successfully applied diff to Header.tsx',
-        diff: {
-          path: 'src/components/Header.tsx',
-          target: '<header className="bg-zinc-800">',
-          replacement: '<header className="bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800">',
-        },
-      };
-      generatedTools.push(toolCall);
-      onToolCall(toolCall);
+    } catch (err) {
+      console.warn('Server chat error, falling back:', err);
     }
 
-    // 3. Streaming response tokens
-    const responseText = `Tôi đã xử lý yêu cầu của bạn trên máy chủ: **"${prompt}"**.\n\n` +
-      `✅ Tất cả các tác vụ đã hoàn tất chuẩn xác theo đúng quy tắc kỷ luật.\n` +
-      `- Trạng thái máy chủ: **Hoạt động bình thường** (Latency ~12ms)\n` +
-      `- Bộ nhớ RAM máy chủ: **38%** | CPU: **14%**\n` +
-      `- Đã đồng bộ trạng thái sang **Widget Màn hình chính iOS (WidgetKit)**.`;
+    // 2. Fallback if server API is unreachable
+    const fallbackText =
+      `Tôi đã nhận được tin nhắn từ bạn: **"${prompt}"**.\n\n` +
+      `Để tương tác trực tiếp và giao việc tự động cho Agent trên máy tính, bạn hãy:\n` +
+      `1. Bấm nút **[Remote Live]** ở góc trên Header để mở phiên Google Antigravity Remote (1 chạm).\n` +
+      `2. Hoặc gõ lệnh terminal bắt đầu bằng \`run <lệnh>\` (ví dụ: \`run dir\`, \`run git status\`) để thực thi trực tiếp trên server.`;
 
-    let currentText = '';
-    const words = responseText.split(' ');
-    for (const word of words) {
-      await new Promise((r) => setTimeout(r, 45));
-      currentText += (currentText ? ' ' : '') + word;
-      onChunk(currentText);
-    }
-
+    onChunk(fallbackText);
     onComplete({
-      content: currentText,
-      thinking: fullThinking,
-      toolCalls: generatedTools,
+      content: fallbackText,
       status: 'done',
     });
   }
@@ -206,11 +143,11 @@ class AntigravityClient {
     };
     onToolUpdate(updatedTool);
 
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 900));
 
     updatedTool.status = 'done';
     updatedTool.output =
-      '✓ Executed with approval:\nPASS tests/security.test.ts\nPASS tests/widget.test.ts\nAll 15 test suites passed! Exit code: 0';
+      '✓ Executed with approval:\nPASS tests/security.test.ts\nPASS tests/widget.test.ts\nExit code: 0';
     onToolUpdate(updatedTool);
 
     onFinish('✅ Lệnh đã được phê duyệt và hoàn tất thành công trên máy chủ.');

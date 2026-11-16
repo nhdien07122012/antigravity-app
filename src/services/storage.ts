@@ -196,9 +196,29 @@ export const storage = {
     return null;
   },
 
-  async fetchRealServerSessions(): Promise<Session[]> {
+  async fetchRealProjects(): Promise<Project[]> {
     try {
-      const res = await fetch('/api/real-sessions');
+      const res = await fetch('/api/real-projects');
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw) && raw.length > 0) {
+          return raw.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            path: p.folderPath || '',
+            filesCount: p.sessionsCount || 0,
+            lastActiveAt: new Date().toISOString(),
+          }));
+        }
+      }
+    } catch {}
+    return DEFAULT_PROJECTS;
+  },
+
+  async fetchRealServerSessions(projectId?: string): Promise<Session[]> {
+    try {
+      const query = projectId && projectId !== 'all_projects' ? `?projectId=${encodeURIComponent(projectId)}` : '';
+      const res = await fetch(`/api/real-sessions${query}`);
       if (res.ok) {
         const raw = await res.json();
         if (Array.isArray(raw) && raw.length > 0) {
@@ -214,6 +234,20 @@ export const storage = {
       }
     } catch {}
     return [];
+  },
+
+  async sendChatMessage(prompt: string, projectId: string, projectName: string): Promise<any> {
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, projectId, projectName }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+    return null;
   },
 
   async fetchRealTranscript(sessionId: string): Promise<Message[]> {

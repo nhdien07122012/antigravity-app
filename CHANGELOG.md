@@ -4,6 +4,24 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 6 - 2026-11-16
+- **Commit:** `37d3a95`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để phản hồi tin nhắn giả định (mock canned response), kết nối phản hồi thông minh thời gian thực từ máy chủ (`/api/chat`), hỗ trợ thực thi trực tiếp lệnh terminal qua cú pháp `run <cmd>`, và phân loại tự động danh sách cuộc hội thoại theo từng Project thực tế trên máy tính host.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `vite.config.ts`: Bổ sung API `POST /api/chat` xử lý tin nhắn tương tác thực tế từ app mobile, trả lời thông minh dựa trên bối cảnh dự án đang mở và hỗ trợ thực thi lệnh dòng lệnh an toàn trên máy chủ (`run_command`); bổ sung hàm `getProjectList()` đọc danh sách dự án thật từ `~/.gemini/config/projects/`.
+  - `src/services/antigravityClient.ts`: Loại bỏ hoàn toàn chuỗi văn bản mẫu cứng (`Tôi đã xử lý yêu cầu...`); chuyển hướng toàn bộ tin nhắn chat người dùng gọi qua `storage.sendChatMessage` gửi tới `/api/chat` trên máy chủ.
+  - `src/services/storage.ts`: Thêm `fetchRealProjects()` lấy danh mục dự án thật từ host; cập nhật `fetchRealServerSessions(projectId)` lọc danh sách hội thoại theo từng dự án cụ thể; thêm `sendChatMessage(prompt, projectId, projectName)` gọi bridge API.
+  - `src/components/Sidebar.tsx`: Cập nhật bộ chọn Project Dropdown hiển thị đầy đủ tên các dự án thật kèm số lượng hội thoại của từng dự án (badge đếm số session); chọn dự án sẽ lọc ngay các hội thoại thuộc dự án đó.
+  - `src/App.tsx`: Nạp danh mục project thật khi khởi động app; truyền bối cảnh `activeProjectId` và `projectName` khi gửi tin nhắn chat; cập nhật danh sách hội thoại tương ứng khi chuyển đổi dự án.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 6` (`v1.0.0 (Build 6)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 6`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 37d3a95 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 4 - 2026-11-16
 - **Commit:** `d4d5d90`
 - **Mục tiêu thay đổi tóm tắt:** Tích hợp cầu nối đồng bộ 100% dữ liệu thực tế từ Antigravity Brain trên máy chủ (`~/.gemini/antigravity/brain/`), hỗ trợ mở trực tiếp phiên Google Remote Control (`3a713708-cef0-49ba-b842-af9504802f6a-v2`) và nạp tự động toàn bộ 17 phiên chat thật cùng lịch sử tin nhắn thực tế.

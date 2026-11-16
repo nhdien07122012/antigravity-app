@@ -38,11 +38,20 @@ export const App: React.FC = () => {
   const loadData = async () => {
     setIsSyncingServer(true);
     const cfg = await storage.getHostConfig();
-    const projs = await storage.getProjects();
-    const activePId = await storage.getActiveProjectId();
 
-    // Fetch real sessions from server brain if accessible
-    let sessList = await storage.fetchRealServerSessions();
+    // Fetch real registered projects from server!
+    let projs = await storage.fetchRealProjects();
+    if (!projs || projs.length === 0) {
+      projs = await storage.getProjects();
+    }
+
+    let activePId = await storage.getActiveProjectId();
+    if (!projs.some((p) => p.id === activePId)) {
+      activePId = projs[0]?.id || '641f4384-b46d-4f8d-8c4b-1fd3b7554682';
+    }
+
+    // Fetch real sessions filtered by project from server brain
+    let sessList = await storage.fetchRealServerSessions(activePId);
     if (!sessList || sessList.length === 0) {
       sessList = await storage.getAllSessionsForProject(activePId);
     }
@@ -98,11 +107,11 @@ export const App: React.FC = () => {
     });
   }, [pendingApprovalsCount]);
 
-  // Handle Switch Project
+  // Handle Switch Project (Filters conversations by project!)
   const handleSelectProject = async (projectId: string) => {
     setActiveProjectId(projectId);
     await storage.setActiveProjectId(projectId);
-    const sessList = await storage.getAllSessionsForProject(projectId);
+    const sessList = await storage.fetchRealServerSessions(projectId);
     setSessions(sessList);
     if (sessList.length > 0) {
       handleSelectSession(sessList[0].id);
@@ -184,9 +193,12 @@ export const App: React.FC = () => {
     setCurrentSession(updatedSess);
     setIsStreaming(true);
 
-    // Call Antigravity Client
+    // Call Antigravity Client with active project context
+    const currentProj = projects.find((p) => p.id === activeProjectId) || projects[0];
     antigravityClient.sendMessage(
       text,
+      activeProjectId,
+      currentProj?.name || 'antigravity-app',
       (chunk) => {
         // on message chunk
         setCurrentSession((prev) => {

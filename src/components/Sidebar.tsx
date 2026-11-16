@@ -83,14 +83,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-sm font-semibold text-gray-900 truncate">
                   {activeProj ? activeProj.name : 'Chọn dự án'}
                 </span>
+                <span className="text-xs bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                  {sessions.length}
+                </span>
               </div>
               <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
             </button>
 
             {showProjectPicker && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-20">
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto">
                 <div className="p-2 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
-                  Dự án trên Host Server
+                  Dự án trên Host Server ({projects.length})
                 </div>
                 {projects.map((p) => (
                   <button
@@ -99,14 +102,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onSelectProject(p.id);
                       setShowProjectPicker(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition ${
+                    className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition ${
                       p.id === activeProjectId
                         ? 'bg-blue-50 text-blue-700 font-bold'
                         : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <FolderCode className="w-4 h-4 text-blue-500" />
-                    <span className="truncate">{p.name}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FolderCode className="w-4 h-4 text-blue-500 shrink-0" />
+                      <span className="truncate">{p.name}</span>
+                    </div>
+                    {p.filesCount !== undefined && (
+                      <span className="text-xs text-gray-400 font-mono ml-2 shrink-0">
+                        {p.filesCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
