@@ -49,26 +49,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="fixed inset-0 z-50 flex select-none">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer Panel */}
-      <div className="relative w-[85%] max-w-[320px] bg-[#121214] border-r border-[#27272a] h-full flex flex-col justify-between z-10 shadow-2xl">
+      <div className="relative w-[85%] max-w-[320px] bg-white border-r border-gray-200 h-full flex flex-col justify-between z-10 shadow-2xl">
         {/* Top: Header & Project Switcher */}
-        <div className="p-3 border-b border-[#27272a]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
+        <div className="p-3.5 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <span className="font-bold text-sm tracking-wide text-zinc-100">Antigravity Mobile</span>
+              <span className="font-bold text-base tracking-tight text-gray-900">Antigravity Mobile</span>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-zinc-400 hover:text-white rounded-md active:bg-zinc-800"
+              className="p-1.5 text-gray-500 hover:text-gray-900 rounded-lg active:bg-gray-100"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -76,20 +76,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowProjectPicker(!showProjectPicker)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900/90 hover:bg-zinc-800/80 rounded-xl border border-zinc-800 text-left transition"
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 text-left transition shadow-sm"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <FolderCode className="w-4 h-4 text-blue-400 shrink-0" />
-                <span className="text-xs font-medium text-zinc-200 truncate">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FolderCode className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-sm font-semibold text-gray-900 truncate">
                   {activeProj ? activeProj.name : 'Chọn dự án'}
                 </span>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+              <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
             </button>
 
             {showProjectPicker && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-20">
-                <div className="p-1.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-20">
+                <div className="p-2 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
                   Dự án trên Host Server
                 </div>
                 {projects.map((p) => (
@@ -99,13 +99,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onSelectProject(p.id);
                       setShowProjectPicker(false);
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition ${
                       p.id === activeProjectId
-                        ? 'bg-blue-600/20 text-blue-400 font-semibold'
-                        : 'text-zinc-300 hover:bg-zinc-800'
+                        ? 'bg-blue-50 text-blue-700 font-bold'
+                        : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <FolderCode className="w-3.5 h-3.5" />
+                    <FolderCode className="w-4 h-4 text-blue-500" />
                     <span className="truncate">{p.name}</span>
                   </button>
                 ))}
@@ -119,18 +119,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewSession();
               onClose();
             }}
-            className="w-full mt-2.5 flex items-center justify-center gap-2 py-2 px-3 bg-zinc-800/90 hover:bg-zinc-700/90 text-white rounded-xl text-xs font-medium border border-zinc-700/60 shadow-sm transition active:scale-[0.98]"
+            className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition active:scale-[0.98]"
           >
-            <Plus className="w-4 h-4 text-blue-400" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Cuộc trò chuyện mới</span>
           </button>
         </div>
 
         {/* Middle: Sessions List */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+        <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
           <div>
-            <div className="flex items-center gap-1.5 px-2 mb-1.5 text-[11px] font-medium text-zinc-400">
-              <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-1.5 px-2 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <Clock className="w-3.5 h-3.5" />
               <span>Gần đây</span>
             </div>
             <div className="space-y-1">
@@ -143,13 +143,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onSelectSession(sess.id);
                       onClose();
                     }}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs text-left transition ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left transition ${
                       isActive
-                        ? 'bg-zinc-800 text-white font-medium shadow-inner'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                        ? 'bg-gray-100 text-gray-900 font-bold shadow-inner'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
-                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-400' : 'text-zinc-500'}`} />
+                    <MessageSquare className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
                     <span className="truncate flex-1">{sess.title}</span>
                   </button>
                 );
@@ -159,15 +159,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom: QR Connect, Settings & Mandatory UI Version Tag (Rule 3) */}
-        <div className="p-3 border-t border-[#27272a] bg-[#0c0c0e]/80 space-y-1.5">
+        <div className="p-3.5 border-t border-gray-200 bg-gray-50 space-y-2">
           <button
             onClick={() => {
               onOpenQRScanner();
               onClose();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800/70 rounded-xl transition"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-200/60 rounded-xl transition"
           >
-            <QrCode className="w-4 h-4 text-blue-400" />
+            <QrCode className="w-4 h-4 text-blue-600" />
             <span>Quét mã QR kết nối Host</span>
           </button>
 
@@ -176,16 +176,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenSettings();
               onClose();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800/70 rounded-xl transition"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-200/60 rounded-xl transition"
           >
-            <Settings className="w-4 h-4 text-zinc-400" />
+            <Settings className="w-4 h-4 text-gray-600" />
             <span>Cài đặt & Máy chủ</span>
           </button>
 
           {/* UI VERSION TAG (Rule 3 Compliance) */}
-          <div className="pt-2 mt-1 border-t border-zinc-800/60 flex items-center justify-between px-1 text-[11px] text-zinc-400 font-mono">
+          <div className="pt-2 mt-1 border-t border-gray-200 flex items-center justify-between px-1 text-xs text-gray-500 font-mono">
             <span>Phiên bản:</span>
-            <span className="version-tag px-2 py-0.5 rounded-full bg-zinc-800/90 text-zinc-300 border border-zinc-700/50">
+            <span className="version-tag px-2.5 py-0.5 rounded-full bg-white text-gray-800 font-bold border border-gray-300 shadow-sm">
               {FULL_VERSION}
             </span>
           </div>

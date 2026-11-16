@@ -17,7 +17,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'camera' | 'manual'>('camera');
   const [manualUrl, setManualUrl] = useState('wss://192.168.1.100:8080/remote');
   const [manualToken, setManualToken] = useState('ag_sec_token_' + Math.floor(100000 + Math.random() * 900000));
-  const [hostName, setHostName] = useState('My Server PC');
+  const [hostName, setHostName] = useState('Dell PC Server');
   const [scanError, setScanError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -41,12 +41,12 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
             }
           },
           (errorMessage) => {
-            // normal scanning frames
+            // frame scanning
           }
         );
       } catch (err: any) {
         console.warn('Scanner init warning:', err);
-        setScanError('Không thể mở camera (có thể do quyền truy cập). Vui lòng dùng tab nhập mã thủ công.');
+        setScanError('Không thể mở camera. Vui lòng cấp quyền hoặc dùng tab nhập mã thủ công.');
       }
     }
 
@@ -61,7 +61,6 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
     try {
       setIsSuccess(true);
       setTimeout(() => {
-        // Parse pairing URL or JSON
         let url = 'wss://antigravity.remote/session';
         let token = 'ag_qr_token_' + Date.now();
 
@@ -129,41 +128,41 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-sm bg-[#121215] border border-zinc-800 rounded-2xl flex flex-col z-10 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-white border border-gray-200 rounded-3xl flex flex-col z-10 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
           <div>
-            <h3 className="text-sm font-bold text-zinc-100">Ghép Đôi Remote Control</h3>
-            <p className="text-[11px] text-zinc-400">Kết nối tới máy tính server của bạn</p>
+            <h3 className="text-base font-bold text-gray-900">Ghép Đôi Remote Control</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Kết nối tới máy tính server của bạn</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+            className="p-1.5 text-gray-500 hover:text-black rounded-lg hover:bg-gray-200"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-zinc-800 p-1 bg-zinc-900/60">
+        <div className="flex border-b border-gray-200 p-1 bg-gray-100">
           <button
             onClick={() => setActiveTab('camera')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition ${
-              activeTab === 'camera' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition ${
+              activeTab === 'camera' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <Camera className="w-3.5 h-3.5" />
+            <Camera className="w-4 h-4 text-blue-600" />
             <span>Quét mã QR</span>
           </button>
           <button
             onClick={() => setActiveTab('manual')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition ${
-              activeTab === 'manual' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition ${
+              activeTab === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <Link2 className="w-3.5 h-3.5" />
+            <Link2 className="w-4 h-4 text-blue-600" />
             <span>Nhập link thủ công</span>
           </button>
         </div>
@@ -172,74 +171,74 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
         <div className="p-4">
           {isSuccess ? (
             <div className="py-8 flex flex-col items-center justify-center text-center">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 animate-bounce mb-2" />
-              <h4 className="text-sm font-semibold text-zinc-100">Ghép Đôi Thành Công!</h4>
-              <p className="text-xs text-zinc-400 mt-1">Đang chuyển về giao diện điều khiển máy chủ...</p>
+              <CheckCircle2 className="w-12 h-12 text-emerald-600 animate-bounce mb-2" />
+              <h4 className="text-base font-bold text-gray-900">Ghép Đôi Thành Công!</h4>
+              <p className="text-xs text-gray-600 mt-1">Đang chuyển về giao diện điều khiển máy chủ...</p>
             </div>
           ) : activeTab === 'camera' ? (
             <div>
-              <p className="text-xs text-zinc-300 text-center mb-3">
-                Mở app Antigravity trên PC ➔ Bật **Remote Control** và hướng camera vào mã QR hiển thị trên màn hình.
+              <p className="text-xs text-gray-600 text-center mb-3 leading-relaxed">
+                Mở app Antigravity trên PC ➔ Bật <b>Remote Control</b> và hướng camera vào mã QR hiển thị trên màn hình.
               </p>
 
               {/* Camera Scanner View Container */}
               <div
                 id="qr-reader-container"
-                className="w-full bg-zinc-950 rounded-xl overflow-hidden border border-zinc-800 min-h-[220px]"
+                className="w-full bg-gray-50 rounded-2xl overflow-hidden border border-gray-300 min-h-[220px]"
               ></div>
 
               {scanError && (
-                <div className="mt-2.5 p-2 bg-rose-950/30 border border-rose-900/50 rounded-lg flex items-center gap-2 text-rose-300 text-[11px]">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <div className="mt-2.5 p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-800 text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{scanError}</span>
                 </div>
               )}
 
-              {/* Quick test button for instant pairing without physical camera */}
+              {/* Quick test button */}
               <button
                 onClick={() => handleScannedText('https://antigravity.google/remote?session=sess_server_dell&token=ag_qr_99182')}
-                className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300 rounded-xl transition border border-zinc-700"
+                className="w-full mt-3.5 flex items-center justify-center gap-2 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-800 rounded-xl transition border border-gray-300"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                <RefreshCw className="w-4 h-4 text-blue-600" />
                 <span>Mô phỏng quét mã QR thành công</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Tên máy chủ:</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Tên máy chủ:</label>
                 <input
                   type="text"
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-200 focus:outline-none focus:border-blue-500"
+                  className="w-full mt-1.5 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-blue-500 font-medium"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Địa chỉ Host / WebSocket URL:</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Địa chỉ Host / WebSocket URL:</label>
                 <input
                   type="text"
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   placeholder="wss://192.168.1.100:8080/remote"
-                  className="w-full mt-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-200 focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full mt-1.5 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:border-blue-500 font-mono font-medium"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Pairing Token:</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Pairing Token:</label>
                 <input
                   type="text"
                   value={manualToken}
                   onChange={(e) => setManualToken(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-200 focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full mt-1.5 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:border-blue-500 font-mono font-medium"
                 />
               </div>
 
               <button
                 onClick={handleManualConnect}
-                className="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-md transition"
+                className="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md transition"
               >
                 Kết Nối Máy Chủ Ngay
               </button>

@@ -35,15 +35,15 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5 select-text">
+    <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6 select-text bg-[#f9fafb]">
       {messages.length === 0 ? (
-        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-3 shadow-inner">
-            <Sparkles className="w-6 h-6 text-blue-400" />
+        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500">
+          <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center text-blue-600 mb-3.5">
+            <Sparkles className="w-7 h-7" />
           </div>
-          <h3 className="text-sm font-semibold text-zinc-200">Antigravity Remote Ready</h3>
-          <p className="text-xs text-zinc-400 max-w-xs mt-1">
-            Gửi yêu cầu hoặc gõ lệnh để bắt đầu điều khiển dự án trên máy tính server của bạn.
+          <h3 className="text-base font-bold text-gray-900">Antigravity Remote Đã Sẵn Sàng</h3>
+          <p className="text-sm text-gray-600 max-w-xs mt-1 leading-relaxed">
+            Nhắn tin hoặc gõ lệnh để bắt đầu điều khiển dự án trên máy tính server của bạn.
           </p>
         </div>
       ) : (
@@ -58,17 +58,17 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             >
               {/* Assistant Avatar */}
               {!isUser && (
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
-                  <Bot className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
+                  <Bot className="w-4 h-4 stroke-[2.2]" />
                 </div>
               )}
 
               {/* Message Content Container */}
               <div
-                className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                className={`max-w-[92%] sm:max-w-[85%] rounded-2xl px-4 py-3.5 text-[15px] leading-relaxed ${
                   isUser
-                    ? 'bg-[#27272a] text-zinc-100 rounded-tr-sm shadow-sm'
-                    : 'bg-[#18181b]/90 text-zinc-200 border border-zinc-800/80 rounded-tl-sm shadow-md'
+                    ? 'bg-zinc-900 text-white rounded-tr-sm shadow-md'
+                    : 'bg-white text-gray-900 border border-gray-200 rounded-tl-sm shadow-sm'
                 }`}
               >
                 {/* Thinking Accordion (for Assistant) */}
@@ -81,7 +81,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
 
                 {/* Tool Executions Cards */}
                 {!isUser && msg.toolCalls && msg.toolCalls.length > 0 && (
-                  <div className="space-y-1 mb-2.5">
+                  <div className="space-y-1 mb-3">
                     {msg.toolCalls.map((tool) => (
                       <React.Fragment key={tool.id}>
                         <ToolExecutionCard tool={tool} />
@@ -98,24 +98,24 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                 )}
 
                 {/* Main Text Content */}
-                <div className="whitespace-pre-wrap font-sans text-xs sm:text-[13px] leading-relaxed">
+                <div className="whitespace-pre-wrap font-sans text-[15px] leading-7 select-text">
                   {msg.content}
                   {isStreaming && isLastMessage && !msg.content && !msg.thinking && (
-                    <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse rounded-sm align-middle" />
+                    <span className="inline-block w-2.5 h-4 ml-1 bg-blue-600 animate-pulse rounded-sm align-middle" />
                   )}
                 </div>
 
                 {/* Artifacts pills */}
                 {!isUser && msg.artifacts && msg.artifacts.length > 0 && (
-                  <div className="mt-3 pt-2.5 border-t border-zinc-800 flex flex-wrap gap-1.5">
+                  <div className="mt-3.5 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
                     {msg.artifacts.map((art) => (
                       <button
                         key={art.id}
                         onClick={() => onOpenArtifact(art)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-950/40 hover:bg-blue-900/40 text-blue-300 rounded-xl border border-blue-800/40 text-[11px] transition"
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-xl border border-blue-200 text-xs sm:text-sm font-semibold transition shadow-sm"
                       >
-                        <FileText className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="font-medium truncate max-w-[180px]">{art.title}</span>
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="truncate max-w-[200px]">{art.title}</span>
                       </button>
                     ))}
                   </div>
@@ -123,16 +123,16 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
 
                 {/* Bottom Action Toolbar (Copy button) */}
                 {!isUser && msg.content && (
-                  <div className="mt-2.5 pt-1.5 flex items-center justify-end gap-2 text-zinc-500">
+                  <div className="mt-3 pt-2 flex items-center justify-end gap-2 text-gray-400 border-t border-gray-50">
                     <button
                       onClick={() => copyToClipboard(msg.id, msg.content)}
-                      className="p-1 hover:text-zinc-300 transition rounded"
+                      className="p-1.5 hover:text-gray-700 hover:bg-gray-100 transition rounded-lg"
                       title="Sao chép nội dung"
                     >
                       {copiedId === msg.id ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <Check className="w-4 h-4 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy className="w-4 h-4" />
                       )}
                     </button>
                   </div>
@@ -141,8 +141,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
 
               {/* User Avatar */}
               {isUser && (
-                <div className="w-7 h-7 rounded-xl bg-zinc-700 flex items-center justify-center text-zinc-300 shrink-0 mt-0.5">
-                  <User className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-gray-200 border border-gray-300 flex items-center justify-center text-gray-700 shrink-0 mt-0.5 shadow-sm">
+                  <User className="w-4 h-4 stroke-[2.2]" />
                 </div>
               )}
             </div>

@@ -12,28 +12,28 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({ thinking, isStream
   if (!thinking) return null;
 
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 transition-all">
+    <div className="mb-3.5 overflow-hidden rounded-2xl border border-amber-200/90 bg-amber-50/60 shadow-sm transition-all">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-800/40 transition"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-amber-100/50 transition"
       >
-        <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
-          <Brain className={`w-3.5 h-3.5 ${isStreaming ? 'text-amber-400 animate-pulse' : 'text-zinc-400'}`} />
-          <span>Quá trình suy nghĩ (Thinking)</span>
+        <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+          <Brain className={`w-4 h-4 ${isStreaming ? 'text-amber-600 animate-pulse' : 'text-amber-700'}`} />
+          <span>Quá trình suy nghĩ (Thinking Process)</span>
           {isStreaming && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded-full border border-amber-400/30">
-              <Sparkles className="w-2.5 h-2.5 animate-spin" />
+            <span className="flex items-center gap-1 text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 font-medium">
+              <Sparkles className="w-3 h-3 animate-spin text-amber-600" />
               Đang phân tích...
             </span>
           )}
         </div>
-        <div className="text-zinc-500">
-          {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        <div className="text-amber-700">
+          {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </div>
       </button>
 
       {isOpen && (
-        <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 border-t border-zinc-800/60 font-mono whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+        <div className="px-3.5 pb-3 pt-1 text-xs sm:text-[13px] text-amber-950 border-t border-amber-200/80 font-mono whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto bg-amber-50/30">
           {thinking}
         </div>
       )}

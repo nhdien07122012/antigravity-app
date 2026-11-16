@@ -299,7 +299,7 @@ export const App: React.FC = () => {
   const currentProject = projects.find((p) => p.id === activeProjectId) || projects[0] || null;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#09090b] text-[#fafafa] font-sans overflow-hidden safe-top safe-bottom">
+    <div className="flex flex-col h-screen w-screen bg-[#f9fafb] text-[#111827] font-sans overflow-hidden safe-top safe-bottom">
       {/* Top Header */}
       <Header
         onOpenSidebar={() => setIsSidebarOpen(true)}
