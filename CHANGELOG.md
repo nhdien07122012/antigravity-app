@@ -4,6 +4,21 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 8 - 2026-11-16
+- **Commit:** `6c3cdf0`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục lỗi GitHub Actions `The configuration 'macos-14-arm64-us-x1' is not supported` bằng cách nâng cấp runner lên `macos-15`, tích hợp cấu hình shared scheme `App.xcscheme` chuẩn Xcode cho xcodebuild, và đồng bộ tự động `pod install`.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `.github/workflows/build-ipa.yml`: Chuyển đổi môi trường runner từ `macos-14` (đã bị GitHub khai tử) sang `macos-15` (macOS Sequoia ổn định nhất với Xcode 16 pre-installed); thêm lệnh `cd ios/App && pod install` đảm bảo CocoaPods native dependencies; thiết lập đích đến `generic/platform=iOS` cho xcodebuild archive.
+  - `ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme`: Tạo tệp cấu hình Scheme dùng chung cho Xcode và xcodebuild trên CI.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 8` (`v1.0.0 (Build 8)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 8`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 6c3cdf0 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 7 - 2026-11-16
 - **Commit:** `46121fe`
 - **Mục tiêu thay đổi tóm tắt:** Thiết lập quy trình tự động build file `.ipa` qua GitHub Actions tạo GitHub Release với link tải trực tiếp; bổ sung icon PWA và Web App Manifest cho trải nghiệm native tức thì trên Safari iOS.
