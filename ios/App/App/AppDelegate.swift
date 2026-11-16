@@ -113,53 +113,89 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     private var webViews: [String: WKWebView] = [:]
 
     private let containerView = UIView()
-    private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let dockScrollView = UIScrollView()
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
     private let addButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
+    private let settingsButton = UIButton(type: .system)
     private let fullscreenButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
 
     private var isFullscreen = false
+    private var currentZoom: CGFloat = 1.0
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .default
+        return traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        view.backgroundColor = .systemBackground
+
+        // Load saved zoom preference
+        let savedZoom = UserDefaults.standard.double(forKey: "ag_page_zoom")
+        if savedZoom >= 0.7 && savedZoom <= 2.5 {
+            currentZoom = CGFloat(savedZoom)
+        }
 
         setupLayout()
+        updateDockTheme()
         loadWorkspaces()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateDockTheme()
+        renderDockTabs()
+    }
+
+    private func updateDockTheme() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        dockView.effect = UIBlurEffect(style: isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight)
+
+        let dockContentView = dockView.contentView
+        dockContentView.backgroundColor = isDark
+            ? UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.72)
+            : UIColor(red: 0.98, green: 0.98, blue: 1.00, alpha: 0.78)
+
+        dockView.layer.borderColor = isDark
+            ? UIColor(white: 1.0, alpha: 0.18).cgColor
+            : UIColor(white: 0.0, alpha: 0.12).cgColor
+
+        dockView.layer.shadowColor = UIColor.black.cgColor
+        dockView.layer.shadowOpacity = isDark ? 0.45 : 0.18
+
+        let tintColor: UIColor = isDark ? .white : .label
+        addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
+        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
+        reloadButton.tintColor = tintColor.withAlphaComponent(0.85)
+        settingsButton.tintColor = tintColor.withAlphaComponent(0.85)
+        fullscreenButton.tintColor = tintColor.withAlphaComponent(0.85)
     }
 
     // MARK: - Setup UI Elements
     private func setupLayout() {
         // 1. Container for WKWebViews
+        // Starts directly beneath the status bar to eliminate double spacing
         containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
 
         // 2. Floating Dock Capsule (Liquid Glass Dynamic Island Style)
         dockView.translatesAutoresizingMaskIntoConstraints = false
-        dockView.layer.cornerRadius = 22
+        dockView.layer.cornerRadius = 18
         dockView.layer.cornerCurve = .continuous
         dockView.layer.masksToBounds = false
-        dockView.layer.shadowColor = UIColor.black.cgColor
-        dockView.layer.shadowOpacity = 0.5
-        dockView.layer.shadowRadius = 18
+        dockView.layer.shadowRadius = 14
         dockView.layer.shadowOffset = CGSize(width: 0, height: 4)
-        dockView.layer.borderColor = UIColor(white: 1.0, alpha: 0.18).cgColor
-        dockView.layer.borderWidth = 0.75
+        dockView.layer.borderWidth = 0.65
         view.addSubview(dockView)
 
         let dockContentView = dockView.contentView
-        dockContentView.layer.cornerRadius = 22
+        dockContentView.layer.cornerRadius = 18
         dockContentView.layer.cornerCurve = .continuous
         dockContentView.clipsToBounds = true
-        dockContentView.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 0.75)
 
         // 3. Scrollable Project Tabs
         dockScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -168,23 +204,21 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         dockStackView.translatesAutoresizingMaskIntoConstraints = false
         dockStackView.axis = .horizontal
-        dockStackView.spacing = 8
+        dockStackView.spacing = 6
         dockStackView.alignment = .center
         dockScrollView.addSubview(dockStackView)
 
-        // 4. Action Buttons Stack (+, Reload, Fullscreen)
+        // 4. Action Buttons Stack (+, Reload, Settings, Fullscreen)
         actionStackView.translatesAutoresizingMaskIntoConstraints = false
         actionStackView.axis = .horizontal
-        actionStackView.spacing = 4
+        actionStackView.spacing = 3
         actionStackView.alignment = .center
         dockContentView.addSubview(actionStackView)
 
         // Add (+) Button
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
-        addButton.tintColor = UIColor(red: 0.4, green: 0.75, blue: 1.0, alpha: 1.0)
-        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 0.25)
-        addButton.layer.cornerRadius = 14
+        addButton.layer.cornerRadius = 13
         addButton.layer.cornerCurve = .continuous
         addButton.addTarget(self, action: #selector(handleAddWorkspace), for: .touchUpInside)
         actionStackView.addArrangedSubview(addButton)
@@ -192,14 +226,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         // Reload (↻) Button
         reloadButton.translatesAutoresizingMaskIntoConstraints = false
         reloadButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
-        reloadButton.tintColor = UIColor(white: 0.85, alpha: 1.0)
+        reloadButton.layer.cornerRadius = 13
+        reloadButton.layer.cornerCurve = .continuous
         reloadButton.addTarget(self, action: #selector(handleReloadActiveTab), for: .touchUpInside)
         actionStackView.addArrangedSubview(reloadButton)
+
+        // Settings (⚙) Button: Zoom, Font Size, Theme, Manage
+        settingsButton.translatesAutoresizingMaskIntoConstraints = false
+        settingsButton.setImage(UIImage(systemName: "textformat.size"), for: .normal)
+        settingsButton.layer.cornerRadius = 13
+        settingsButton.layer.cornerCurve = .continuous
+        settingsButton.addTarget(self, action: #selector(handleSettingsTapped), for: .touchUpInside)
+        actionStackView.addArrangedSubview(settingsButton)
 
         // Fullscreen (⤢) Button
         fullscreenButton.translatesAutoresizingMaskIntoConstraints = false
         fullscreenButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right"), for: .normal)
-        fullscreenButton.tintColor = UIColor(white: 0.85, alpha: 1.0)
+        fullscreenButton.layer.cornerRadius = 13
+        fullscreenButton.layer.cornerCurve = .continuous
         fullscreenButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
         actionStackView.addArrangedSubview(fullscreenButton)
 
@@ -208,7 +252,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         restoreButton.setImage(UIImage(systemName: "arrow.down.right.and.arrow.up.left"), for: .normal)
         restoreButton.tintColor = .white
         restoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        restoreButton.layer.cornerRadius = 18
+        restoreButton.layer.cornerRadius = 16
         restoreButton.layer.cornerCurve = .continuous
         restoreButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
         restoreButton.layer.borderWidth = 0.5
@@ -221,22 +265,22 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         // Constraints
         NSLayoutConstraint.activate([
-            // Container fills entire screen
-            containerView.topAnchor.constraint(equalTo: view.topAnchor),
+            // Container starts snugly beneath status bar to maximize view area
+            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Floating dock pinned closer to bottom (Dynamic Island look)
+            // Floating dock lowered down right to bottom edge (Home Indicator zone)
             dockView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            dockView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 14),
-            dockView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -14),
-            dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
-            dockView.heightAnchor.constraint(equalToConstant: 44),
+            dockView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 10),
+            dockView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -10),
+            dockView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
+            dockView.heightAnchor.constraint(equalToConstant: 36),
 
             // Dock scroll view
-            dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 8),
-            dockScrollView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -8),
+            dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 6),
+            dockScrollView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -6),
             dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor),
             dockScrollView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
 
@@ -248,21 +292,23 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             dockStackView.heightAnchor.constraint(equalTo: dockScrollView.heightAnchor),
 
             // Action stack
-            actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -8),
+            actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -6),
             actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
 
-            addButton.widthAnchor.constraint(equalToConstant: 28),
-            addButton.heightAnchor.constraint(equalToConstant: 28),
-            reloadButton.widthAnchor.constraint(equalToConstant: 28),
-            reloadButton.heightAnchor.constraint(equalToConstant: 28),
-            fullscreenButton.widthAnchor.constraint(equalToConstant: 28),
-            fullscreenButton.heightAnchor.constraint(equalToConstant: 28),
+            addButton.widthAnchor.constraint(equalToConstant: 26),
+            addButton.heightAnchor.constraint(equalToConstant: 26),
+            reloadButton.widthAnchor.constraint(equalToConstant: 26),
+            reloadButton.heightAnchor.constraint(equalToConstant: 26),
+            settingsButton.widthAnchor.constraint(equalToConstant: 26),
+            settingsButton.heightAnchor.constraint(equalToConstant: 26),
+            fullscreenButton.widthAnchor.constraint(equalToConstant: 26),
+            fullscreenButton.heightAnchor.constraint(equalToConstant: 26),
 
             // Restore button
             restoreButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            restoreButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            restoreButton.widthAnchor.constraint(equalToConstant: 36),
-            restoreButton.heightAnchor.constraint(equalToConstant: 36)
+            restoreButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            restoreButton.widthAnchor.constraint(equalToConstant: 34),
+            restoreButton.heightAnchor.constraint(equalToConstant: 34)
         ])
     }
 
@@ -278,7 +324,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         // Initialize WKWebViews for all workspaces
         for ws in workspaces {
-            ensureWebView(for: ws)
+            _ = ensureWebView(for: ws)
         }
 
         updateActiveVisibility()
@@ -293,17 +339,16 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        // Share website data store so Google login session persists across all project tabs!
         config.websiteDataStore = WKWebsiteDataStore.default()
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
-        // Genuine Mobile Safari User-Agent ensures Google Accounts allows standard login!
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = self
-        webView.scrollView.contentInsetAdjustmentBehavior = .always
-        webView.backgroundColor = .white
+        // Prevents extra automatic top margin so page sits right below status bar
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.backgroundColor = .systemBackground
 
         containerView.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -347,6 +392,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             $0.removeFromSuperview()
         }
 
+        let isDark = traitCollection.userInterfaceStyle == .dark
+
         for ws in workspaces {
             let isActive = (ws.id == activeWorkspaceId)
 
@@ -356,19 +403,22 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
             // Liquid Glass Capsule Tab
             button.setTitle(ws.name, for: .normal)
-            button.setTitleColor(isActive ? .white : UIColor(white: 0.82, alpha: 1.0), for: .normal)
-            button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: isActive ? .bold : .medium)
-            button.contentEdgeInsets = UIEdgeInsets(top: 5, left: 11, bottom: 5, right: 11)
+            button.setTitleColor(isActive ? .white : (isDark ? UIColor(white: 0.88, alpha: 1.0) : UIColor.label), for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 11, weight: isActive ? .bold : .medium)
+            button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 9, bottom: 4, right: 9)
 
-            button.backgroundColor = isActive ? UIColor(red: 0.12, green: 0.45, blue: 1.0, alpha: 0.95) : UIColor(white: 1.0, alpha: 0.10)
-            button.layer.cornerRadius = 14
+            button.backgroundColor = isActive
+                ? UIColor(red: 0.12, green: 0.45, blue: 1.0, alpha: 0.95)
+                : (isDark ? UIColor(white: 1.0, alpha: 0.12) : UIColor(white: 0.0, alpha: 0.06))
+
+            button.layer.cornerRadius = 12
             button.layer.cornerCurve = .continuous
             button.clipsToBounds = true
 
             if isActive {
                 button.layer.shadowColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 0.55).cgColor
                 button.layer.shadowOpacity = 0.6
-                button.layer.shadowRadius = 8
+                button.layer.shadowRadius = 6
                 button.layer.shadowOffset = CGSize(width: 0, height: 2)
             } else {
                 button.layer.shadowOpacity = 0
@@ -445,7 +495,6 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     private func removeWorkspace(_ ws: RemoteWorkspace) {
         guard let idx = workspaces.firstIndex(where: { $0.id == ws.id }) else { return }
 
-        // Remove WKWebView from view hierarchy and memory
         if let wv = webViews[ws.id] {
             wv.stopLoading()
             wv.removeFromSuperview()
@@ -481,6 +530,69 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
     }
 
+    // MARK: - Zoom & Font Size Settings
+    @objc private func handleSettingsTapped() {
+        let percent = Int(currentZoom * 100)
+        let sheet = UIAlertController(
+            title: "Cài Đặt Cỡ Chữ & Thu Phóng",
+            message: "Mức phóng to hiện tại: \(percent)%",
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "🔍 Phóng to chữ & giao diện (+10%)", style: .default, handler: { _ in
+            self.adjustZoom(by: 0.1)
+        }))
+
+        sheet.addAction(UIAlertAction(title: "🔍 Thu nhỏ chữ & giao diện (-10%)", style: .default, handler: { _ in
+            self.adjustZoom(by: -0.1)
+        }))
+
+        if currentZoom != 1.0 {
+            sheet.addAction(UIAlertAction(title: "↺ Đặt lại kích thước chuẩn (100%)", style: .default, handler: { _ in
+                self.setZoom(1.0)
+            }))
+        }
+
+        if let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
+            sheet.addAction(UIAlertAction(title: "✏️ Đổi tên tab (\(active.name))", style: .default, handler: { _ in
+                self.showRenameDialog(for: active)
+            }))
+        }
+
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = settingsButton
+            popover.sourceRect = settingsButton.bounds
+        }
+
+        present(sheet, animated: true)
+    }
+
+    private func adjustZoom(by delta: CGFloat) {
+        let newZoom = max(0.7, min(2.2, currentZoom + delta))
+        setZoom(newZoom)
+    }
+
+    private func setZoom(_ zoom: CGFloat) {
+        currentZoom = (zoom * 10).rounded() / 10.0
+        UserDefaults.standard.set(Double(currentZoom), forKey: "ag_page_zoom")
+
+        for (_, wv) in webViews {
+            applyZoom(currentZoom, to: wv)
+        }
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func applyZoom(_ zoom: CGFloat, to webView: WKWebView) {
+        if #available(iOS 14.0, *) {
+            webView.pageZoom = zoom
+        }
+        let percent = Int(zoom * 100)
+        webView.evaluateJavaScript("document.body.style.zoom = '\(percent)%'", completionHandler: nil)
+    }
+
     @objc private func toggleFullscreen() {
         isFullscreen.toggle()
         UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
@@ -490,11 +602,55 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
     }
 
+    // MARK: - WKNavigationDelegate
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // 1. Hide dev logo at top left & reduce top padding
+        let script = """
+        (function() {
+            var style = document.createElement('style');
+            style.id = 'ag-mobile-cleaner';
+            style.textContent = `
+                header, nav, [role="banner"], .boqOnegoogleliteOgbOneGoogleBar {
+                    padding-top: 0px !important;
+                    margin-top: 0px !important;
+                }
+            `;
+            if (!document.getElementById('ag-mobile-cleaner')) {
+                document.head.appendChild(style);
+            }
+
+            function hideTopLeftDevLogo() {
+                var items = document.querySelectorAll('header svg, [role="banner"] svg, nav svg, header img, [role="banner"] img, nav img');
+                for (var i = 0; i < items.length; i++) {
+                    var el = items[i];
+                    var rect = el.getBoundingClientRect();
+                    // Antigravity dev logo sits in the top-left corner
+                    if (rect.left >= 0 && rect.left < 55 && rect.top >= 0 && rect.top < 65 && rect.width < 50) {
+                        var text = (el.parentElement ? el.parentElement.innerText : '') || '';
+                        if (!text.includes('DELL') && !text.includes('Sign')) {
+                            el.style.display = 'none';
+                        }
+                    }
+                }
+            }
+            hideTopLeftDevLogo();
+            setTimeout(hideTopLeftDevLogo, 500);
+            setTimeout(hideTopLeftDevLogo, 1500);
+            setTimeout(hideTopLeftDevLogo, 3000);
+        })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+
+        // 2. Apply zoom if customized
+        if currentZoom != 1.0 {
+            applyZoom(currentZoom, to: webView)
+        }
+    }
+
     // MARK: - QRScannerDelegate
     func didScanWorkspace(url: String, customName: String?) {
         let parsed = WorkspaceStore.shared.parseGoogleRemoteUrl(url)
 
-        // If project with same session or URL already exists, simply switch to it
         if let existing = workspaces.first(where: { (parsed.sessionId != nil && $0.sessionId == parsed.sessionId) || $0.url == parsed.url }) {
             switchWorkspace(to: existing.id)
             return
@@ -514,7 +670,6 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         workspaces.append(newWs)
         WorkspaceStore.shared.saveWorkspaces(workspaces)
 
-        // Instantiate native WKWebView
         _ = ensureWebView(for: newWs)
         switchWorkspace(to: newId)
     }

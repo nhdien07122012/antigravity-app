@@ -4,6 +4,26 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 15 - 2026-11-16
+- **Commit:** `878b10c`
+- **Mục tiêu thay đổi tóm tắt:** Tối ưu hoá toàn diện giao diện hiển thị: hỗ trợ Dark/Light mode tự động cho Float Dock; hạ thấp sát mép đáy màn hình (36pt) để giải phóng vùng nhập tin nhắn; thêm công cụ điều chỉnh cỡ chữ & thu phóng trang (Zoom 70% - 200%); ghim sát header vào status bar và tự động ẩn logo dev phía trên để mở rộng không gian tối đa.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Hỗ trợ Dark/Light Mode thích ứng tự động cho Float Dock (`UIBlurEffect.systemThinMaterialLight / systemUltraThinMaterialDark`), cập nhật màu sắc động khi đổi theme qua `traitCollectionDidChange`.
+    - Hạ thấp Floating Dock xuống sát viền dưới màn hình (`view.bottomAnchor, constant: -6`), giảm chiều cao xuống 36pt giúp giải phóng hoàn toàn vùng ô nhập chat phía dưới.
+    - Bổ sung nút Cài Đặt cỡ chữ & thu phóng (`settingsButton`): hỗ trợ tăng/giảm cỡ chữ (+10% / -10%), đặt lại 100%, đồng bộ qua cả `WKWebView.pageZoom` và CSS `document.body.style.zoom`, lưu cấu hình vào `UserDefaults`.
+    - Tối ưu vùng Header trên: thiết lập `contentInsetAdjustmentBehavior = .never` và ghim `containerView.topAnchor = view.safeAreaLayoutGuide.topAnchor` xóa bỏ khoảng trống thừa bên dưới status bar.
+    - Tự động phát hiện và ẩn icon logo dev Antigravity ở góc trên bên trái (`left < 55 && top < 65`), giúp chip máy chủ `● DELL5770-DELL` và các nút thanh công cụ có thêm diện tích hiển thị.
+  - `src/components/FloatingDock.tsx`: Bổ sung menu thu phóng nhanh (Zoom In / Out / Reset), hạ thấp đáy dock `bottom-[calc(2px+env(safe-area-inset-bottom,0px))]`, hỗ trợ giao diện sáng/tối linh hoạt.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 15` (`v1.0.0 (Build 15)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 15`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 878b10c --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 14 - 2026-11-16
 - **Commit:** `859f981`
 - **Mục tiêu thay đổi tóm tắt:** Tinh chỉnh hạ thấp vị trí thanh Floating Dock sát viền dưới màn hình và chuyển đổi sang phong cách **Liquid Glass Dynamic Island** với hiệu ứng kính mờ obsidian đa lớp, đường cong con nhộng liên tục (`cornerCurve = .continuous`), viền phản quang kim loại và tab dự án dạng viên thuốc bo tròn siêu êm ái.
