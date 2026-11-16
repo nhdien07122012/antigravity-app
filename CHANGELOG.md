@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 25 - 2026-11-16
-- **Commit:** `97ef3fd`
-- **GitHub Actions Run:** `pending`
+- **Commit:** `d404377`
+- **GitHub Actions Run:** `#43886580426` (success)
 - **Mục tiêu thay đổi tóm tắt:** Bổ sung nút Back (`◀`) trên thanh Dock và bảng điều khiển cho phép quay lại trang trước 1 chạm hoặc nhấn giữ để xem danh sách lịch sử duyệt trang; Tích hợp hệ thống thông báo tự động (Notification & In-app Toast Banner) khi một hội thoại (Conversation) hoàn thành kết quả phản hồi với rung phản hồi xúc giác (Haptics), âm thanh chuông báo (System Chime), biểu ngữ động nhảy ra từ đỉnh màn hình, và thông báo đẩy cục bộ iOS (UNUserNotificationCenter) ngay cả khi khóa máy hoặc chuyển app.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -34,7 +34,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 25`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 97ef3fd --no-edit
+  git revert d404377 --no-edit
   ```
 
 ---
