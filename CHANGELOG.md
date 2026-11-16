@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 21 - 2026-11-16
-- **Commit:** `151a59c`
+- **Commit:** `85dce22`
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi Google 403 Forbidden & không load được dữ liệu trong app; loại bỏ 100% hiện tượng viền vuông màu đen mờ trên Dock; bổ sung menu Cài đặt & Điều khiển phiên kết nối toàn diện với tính năng cập nhật URL, đăng nhập Google, xóa cache và xử lý lỗi 403 thông minh.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -26,7 +26,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 21`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 151a59c --no-edit
+  git revert 85dce22 --no-edit
   ```
 
 ---
