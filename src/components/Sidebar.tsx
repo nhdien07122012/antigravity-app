@@ -129,9 +129,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Middle: Sessions List */}
         <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
           <div>
-            <div className="flex items-center gap-1.5 px-2 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Gần đây</span>
+            <div className="flex items-center justify-between px-2 mb-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Phiên trên Server ({sessions.length})</span>
+              </div>
             </div>
             <div className="space-y-1">
               {sessions.map((sess) => {

@@ -14,10 +14,12 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   onClose,
   onPairSuccess,
 }) => {
-  const [activeTab, setActiveTab] = useState<'camera' | 'manual'>('camera');
-  const [manualUrl, setManualUrl] = useState('wss://192.168.1.100:8080/remote');
-  const [manualToken, setManualToken] = useState('ag_sec_token_' + Math.floor(100000 + Math.random() * 900000));
-  const [hostName, setHostName] = useState('Dell PC Server');
+  const [activeTab, setActiveTab] = useState<'camera' | 'manual'>('manual');
+  const [manualUrl, setManualUrl] = useState(
+    'https://accounts.google.com/AccountChooser?Email=dien07122012%40gmail.com&continue=https%3A%2F%2Fantigravity.google.com%2Fr%2F3a713708-cef0-49ba-b842-af9504802f6a-v2'
+  );
+  const [manualToken, setManualToken] = useState('3a713708-cef0-49ba-b842-af9504802f6a-v2');
+  const [hostName, setHostName] = useState('Dell PC Server (Antigravity)');
   const [scanError, setScanError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -61,24 +63,30 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
     try {
       setIsSuccess(true);
       setTimeout(() => {
-        let url = 'wss://antigravity.remote/session';
-        let token = 'ag_qr_token_' + Date.now();
+        let url = text;
+        let token = '3a713708-cef0-49ba-b842-af9504802f6a-v2';
+        let email = 'dien07122012@gmail.com';
 
-        if (text.startsWith('http') || text.startsWith('ws')) {
-          try {
-            const parsed = new URL(text);
-            url = parsed.origin + parsed.pathname;
-            token = parsed.searchParams.get('token') || parsed.searchParams.get('session') || token;
-          } catch {
-            url = text;
+        if (text.includes('antigravity.google.com') || text.includes('accounts.google.com')) {
+          url = text;
+          const matchSession = text.match(/\/r\/([a-zA-Z0-9_-]+)/);
+          if (matchSession) {
+            token = matchSession[1];
+          }
+          const matchEmail = text.match(/Email=([^&]+)/);
+          if (matchEmail) {
+            email = decodeURIComponent(matchEmail[1]);
           }
         }
 
         const newConfig: HostConfig = {
           id: 'host_' + Date.now(),
-          name: hostName || 'Antigravity Host',
+          name: hostName || 'Dell PC Server (Antigravity)',
           url: url,
           token: token,
+          remoteLink: text,
+          remoteSessionId: token,
+          googleAccountEmail: email,
           isConnected: true,
           lastConnectedAt: new Date().toISOString(),
           model: 'Gemini 2.5 Flash',
@@ -102,11 +110,25 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const handleManualConnect = () => {
     setIsSuccess(true);
     setTimeout(() => {
+      let email = 'dien07122012@gmail.com';
+      let token = manualToken;
+      const matchSession = manualUrl.match(/\/r\/([a-zA-Z0-9_-]+)/);
+      if (matchSession) {
+        token = matchSession[1];
+      }
+      const matchEmail = manualUrl.match(/Email=([^&]+)/);
+      if (matchEmail) {
+        email = decodeURIComponent(matchEmail[1]);
+      }
+
       const newConfig: HostConfig = {
         id: 'host_' + Date.now(),
-        name: hostName || 'Dell PC Server',
+        name: hostName || 'Dell PC Server (Antigravity)',
         url: manualUrl,
-        token: manualToken,
+        token: token,
+        remoteLink: manualUrl,
+        remoteSessionId: token,
+        googleAccountEmail: email,
         isConnected: true,
         lastConnectedAt: new Date().toISOString(),
         model: 'Gemini 2.5 Flash',

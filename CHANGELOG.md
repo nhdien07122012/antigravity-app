@@ -4,6 +4,26 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 4 - 2026-11-16
+- **Commit:** `PENDING_COMMIT` (sẽ được gắn SHA ngay sau khi commit)
+- **Mục tiêu thay đổi tóm tắt:** Tích hợp cầu nối đồng bộ 100% dữ liệu thực tế từ Antigravity Brain trên máy chủ (`~/.gemini/antigravity/brain/`), hỗ trợ mở trực tiếp phiên Google Remote Control (`3a713708-cef0-49ba-b842-af9504802f6a-v2`) và nạp tự động toàn bộ 17 phiên chat thật cùng lịch sử tin nhắn thực tế.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `vite.config.ts`: Bổ sung Vite middleware plugin `antigravity-bridge-plugin` cung cấp 3 API: `/api/server-info`, `/api/real-sessions`, `/api/real-transcript/:id`.
+  - `src/services/storage.ts`: Thêm hàm nạp phiên chat thật (`fetchRealServerSessions`) và transcript thật (`fetchRealTranscript`).
+  - `src/components/LiveRemoteModal.tsx`: Modal điều khiển phiên Google Remote Control, mở link 1 chạm và đồng bộ máy chủ.
+  - `src/components/Header.tsx`: Bổ sung nút truy cập nhanh "Remote Live" kết nối link Google Remote của người dùng.
+  - `src/components/QRScannerModal.tsx`: Tự động phân tích link Google AccountChooser và trích xuất session ID `3a713708-cef0-49ba-b842-af9504802f6a-v2`.
+  - `src/components/Sidebar.tsx`: Cập nhật menu hiển thị 17 phiên làm việc thực tế trên server.
+  - `src/App.tsx`: Tự động đồng bộ tin nhắn thật, thinking thật, tool execution thật từ máy chủ server.
+  - `src/version.ts`: Tăng phiên bản bản dựng lên `Build 4`.
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 4`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert HEAD --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 3 - 2026-11-16
 - **Commit:** `025c0c0`
 - **Mục tiêu thay đổi tóm tắt:** Chuyển đổi toàn diện sang giao diện sáng (Light Theme) tinh tế chuẩn Apple/ChatGPT, tăng kích thước font chữ (15px-16px) và độ tương phản cao giúp dễ đọc trên iPhone và máy tính.
@@ -20,6 +40,26 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `src/components/SettingsModal.tsx`, `QRScannerModal.tsx`, `WidgetPreviewModal.tsx`, `ArtifactModal.tsx`: Đồng bộ tất cả modal sang theme sáng.
   - `src/version.ts`: Tăng phiên bản bản dựng lên `Build 3`.
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 3`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert HEAD --no-edit
+  ```
+
+---
+
+## [v1.0.0] - Build 4 - 2026-11-16
+- **Commit:** `PENDING_COMMIT` (sẽ được gắn SHA ngay sau khi commit)
+- **Mục tiêu thay đổi tóm tắt:** Tích hợp cầu nối đồng bộ 100% dữ liệu thực tế từ Antigravity Brain trên máy chủ (`~/.gemini/antigravity/brain/`), hỗ trợ mở trực tiếp phiên Google Remote Control (`3a713708-cef0-49ba-b842-af9504802f6a-v2`) và nạp tự động toàn bộ 17 phiên chat thật cùng lịch sử tin nhắn thực tế.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `vite.config.ts`: Bổ sung Vite middleware plugin `antigravity-bridge-plugin` cung cấp 3 API: `/api/server-info`, `/api/real-sessions`, `/api/real-transcript/:id`.
+  - `src/services/storage.ts`: Thêm hàm nạp phiên chat thật (`fetchRealServerSessions`) và transcript thật (`fetchRealTranscript`).
+  - `src/components/LiveRemoteModal.tsx`: Modal điều khiển phiên Google Remote Control, mở link 1 chạm và đồng bộ máy chủ.
+  - `src/components/Header.tsx`: Bổ sung nút truy cập nhanh "Remote Live" kết nối link Google Remote của người dùng.
+  - `src/components/QRScannerModal.tsx`: Tự động phân tích link Google AccountChooser và trích xuất session ID `3a713708-cef0-49ba-b842-af9504802f6a-v2`.
+  - `src/components/Sidebar.tsx`: Cập nhật menu hiển thị 17 phiên làm việc thực tế trên server.
+  - `src/App.tsx`: Tự động đồng bộ tin nhắn thật, thinking thật, tool execution thật từ máy chủ server.
+  - `src/version.ts`: Tăng phiên bản bản dựng lên `Build 4`.
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 4`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
   git revert HEAD --no-edit

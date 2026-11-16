@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, QrCode, Cpu, ShieldCheck } from 'lucide-react';
+import { Menu, QrCode, Cpu, ShieldCheck, Globe } from 'lucide-react';
 import { HostConfig, Project } from '../types';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onOpenQRScanner: () => void;
   onOpenSettings: () => void;
   onOpenWidgetPreview: () => void;
+  onOpenLiveRemote: () => void;
   activeProject: Project | null;
   hostConfig: HostConfig;
 }
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenQRScanner,
   onOpenSettings,
   onOpenWidgetPreview,
+  onOpenLiveRemote,
   activeProject,
   hostConfig,
 }) => {
@@ -48,12 +50,21 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Actions (Widget Preview, QR Scanner, Host Status) */}
+      {/* Right: Actions (Live Remote, Widget Preview, QR Scanner, Settings) */}
       <div className="flex items-center gap-1">
+        <button
+          onClick={onOpenLiveRemote}
+          title="Mở Google Remote Control"
+          className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border border-blue-200 text-xs font-bold transition"
+        >
+          <Globe className="w-3.5 h-3.5 text-blue-600" />
+          <span className="hidden sm:inline">Remote Live</span>
+        </button>
+
         <button
           onClick={onOpenWidgetPreview}
           title="Xem thử Widget iOS"
-          className="p-2 text-amber-600 hover:text-amber-700 rounded-xl active:bg-gray-100 transition"
+          className="p-1.5 text-amber-600 hover:text-amber-700 rounded-xl active:bg-gray-100 transition"
         >
           <Cpu className="w-5 h-5 stroke-[2]" />
         </button>
@@ -61,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onOpenQRScanner}
           title="Quét QR Kết nối Remote"
-          className="p-2 text-blue-600 hover:text-blue-700 rounded-xl active:bg-gray-100 transition"
+          className="p-1.5 text-blue-600 hover:text-blue-700 rounded-xl active:bg-gray-100 transition"
         >
           <QrCode className="w-5 h-5 stroke-[2]" />
         </button>
@@ -69,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onOpenSettings}
           title="Cài đặt hệ thống"
-          className="p-2 text-emerald-600 hover:text-emerald-700 rounded-xl active:bg-gray-100 transition"
+          className="p-1.5 text-emerald-600 hover:text-emerald-700 rounded-xl active:bg-gray-100 transition"
         >
           <ShieldCheck className="w-5 h-5 stroke-[2]" />
         </button>

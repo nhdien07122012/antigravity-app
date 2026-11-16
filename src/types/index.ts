@@ -59,6 +59,9 @@ export interface HostConfig {
   lastConnectedAt?: string;
   model: string;
   toolPolicy: 'always-proceed' | 'request-review' | 'strict';
+  remoteLink?: string;
+  googleAccountEmail?: string;
+  remoteSessionId?: string;
   systemStats?: {
     cpuPercent: number;
     ramPercent: number;

@@ -7,6 +7,8 @@ import { QRScannerModal } from './components/QRScannerModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ArtifactModal } from './components/ArtifactModal';
 import { WidgetPreviewModal } from './components/WidgetPreviewModal';
+import { LiveRemoteModal } from './components/LiveRemoteModal';
+import { ExternalLink, RefreshCw } from 'lucide-react';
 
 import { storage } from './services/storage';
 import { antigravityClient } from './services/antigravityClient';
@@ -28,37 +30,54 @@ export const App: React.FC = () => {
   const [isQRScannerOpen, setIsQRScannerOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isWidgetPreviewOpen, setIsWidgetPreviewOpen] = useState<boolean>(false);
+  const [isLiveRemoteOpen, setIsLiveRemoteOpen] = useState<boolean>(false);
   const [activeArtifact, setActiveArtifact] = useState<any | null>(null);
+  const [isSyncingServer, setIsSyncingServer] = useState<boolean>(false);
 
-  // 1. Initial Load from Persistent Storage
-  useEffect(() => {
-    async function loadData() {
-      const cfg = await storage.getHostConfig();
-      const projs = await storage.getProjects();
-      const activePId = await storage.getActiveProjectId();
-      const sessList = await storage.getAllSessionsForProject(activePId);
+  // 1. Initial Load from Persistent Storage & Server Brain
+  const loadData = async () => {
+    setIsSyncingServer(true);
+    const cfg = await storage.getHostConfig();
+    const projs = await storage.getProjects();
+    const activePId = await storage.getActiveProjectId();
 
-      setHostConfig(cfg);
-      setProjects(projs);
-      setActiveProjectId(activePId);
-      setSessions(sessList);
+    // Fetch real sessions from server brain if accessible
+    let sessList = await storage.fetchRealServerSessions();
+    if (!sessList || sessList.length === 0) {
+      sessList = await storage.getAllSessionsForProject(activePId);
+    }
 
-      if (sessList.length > 0) {
-        setActiveSessionId(sessList[0].id);
-        setCurrentSession(sessList[0]);
-      }
+    setHostConfig(cfg);
+    setProjects(projs);
+    setActiveProjectId(activePId);
+    setSessions(sessList);
 
-      // Initialize remote client
-      antigravityClient.connect(cfg);
+    if (sessList.length > 0) {
+      const activeSess = sessList[0];
+      setActiveSessionId(activeSess.id);
 
-      // Initialize widget data
-      widgetBridge.updateWidgetData({
-        hostName: cfg.name,
-        isOnline: cfg.isConnected,
-        activeProject: projs.find((p) => p.id === activePId)?.name || 'antigravity-app',
+      // Fetch real transcript messages from server brain
+      const realMsgs = await storage.fetchRealTranscript(activeSess.id);
+      setCurrentSession({
+        ...activeSess,
+        messages: realMsgs.length > 0 ? realMsgs : activeSess.messages || [],
       });
     }
 
+    // Initialize remote client
+    antigravityClient.connect(cfg);
+
+    // Initialize widget data
+    widgetBridge.updateWidgetData({
+      hostName: cfg.name,
+      isOnline: cfg.isConnected,
+      activeProject: projs.find((p) => p.id === activePId)?.name || 'antigravity-app',
+    });
+
+    setIsSyncingServer(false);
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -72,7 +91,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     widgetBridge.updateWidgetData({
       pendingApprovalsCount,
-      currentTask: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} lệnh chờ duyệt` : 'Sẵn sàng nhận lệnh',
+      currentTask:
+        pendingApprovalsCount > 0
+          ? `${pendingApprovalsCount} lệnh chờ duyệt`
+          : 'Sẵn sàng nhận lệnh',
     });
   }, [pendingApprovalsCount]);
 
@@ -83,8 +105,7 @@ export const App: React.FC = () => {
     const sessList = await storage.getAllSessionsForProject(projectId);
     setSessions(sessList);
     if (sessList.length > 0) {
-      setActiveSessionId(sessList[0].id);
-      setCurrentSession(sessList[0]);
+      handleSelectSession(sessList[0].id);
     } else {
       handleNewSession();
     }
@@ -93,9 +114,25 @@ export const App: React.FC = () => {
   // Handle Switch Session
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
+
+    // 1. Fetch real messages from server brain
+    const realMsgs = await storage.fetchRealTranscript(sessionId);
+    const existing = sessions.find((s) => s.id === sessionId);
+
+    if (existing) {
+      setCurrentSession({
+        ...existing,
+        messages: realMsgs.length > 0 ? realMsgs : existing.messages || [],
+      });
+      return;
+    }
+
     const sess = await storage.getSession(sessionId);
     if (sess) {
-      setCurrentSession(sess);
+      setCurrentSession({
+        ...sess,
+        messages: realMsgs.length > 0 ? realMsgs : sess.messages || [],
+      });
     }
   };
 
@@ -306,9 +343,36 @@ export const App: React.FC = () => {
         onOpenQRScanner={() => setIsQRScannerOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenWidgetPreview={() => setIsWidgetPreviewOpen(true)}
+        onOpenLiveRemote={() => setIsLiveRemoteOpen(true)}
         activeProject={currentProject}
         hostConfig={hostConfig}
       />
+
+      {/* Remote Control Live Status Banner */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-3.5 py-2 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="font-semibold text-blue-950 truncate">
+            Remote Active: <span className="font-mono text-blue-700">3a713708-cef0-49ba-b842-af9504802f6a-v2</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => loadData()}
+            title="Đồng bộ hội thoại thực tế từ server"
+            className="p-1 hover:bg-blue-100 rounded-lg text-blue-700 transition"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingServer ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setIsLiveRemoteOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] shadow-sm transition"
+          >
+            <span>Mở Remote Live</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
 
       {/* Main Chat Canvas Area */}
       <ChatCanvas
@@ -373,6 +437,24 @@ export const App: React.FC = () => {
         hostConfig={hostConfig}
         activeProject={currentProject}
         pendingApprovalsCount={pendingApprovalsCount}
+      />
+
+      {/* Google Antigravity Remote Live Modal */}
+      <LiveRemoteModal
+        isOpen={isLiveRemoteOpen}
+        onClose={() => setIsLiveRemoteOpen(false)}
+        hostConfig={hostConfig}
+        onUpdateRemoteLink={async (newLink) => {
+          const updated = {
+            ...hostConfig,
+            remoteLink: newLink,
+          };
+          setHostConfig(updated);
+          await storage.saveHostConfig(updated);
+        }}
+        onSyncRealSessions={async () => {
+          await loadData();
+        }}
       />
     </div>
   );

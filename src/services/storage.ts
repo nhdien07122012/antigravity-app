@@ -1,5 +1,5 @@
 import { Preferences } from '@capacitor/preferences';
-import { HostConfig, Project, Session } from '../types';
+import { HostConfig, Project, Session, Message } from '../types';
 
 const KEYS = {
   HOST_CONFIG: 'ag_host_config',
@@ -19,6 +19,10 @@ const DEFAULT_HOST: HostConfig = {
   lastConnectedAt: new Date().toISOString(),
   model: 'Gemini 2.5 Flash',
   toolPolicy: 'request-review',
+  remoteLink:
+    'https://accounts.google.com/AccountChooser?Email=dien07122012%40gmail.com&continue=https%3A%2F%2Fantigravity.google.com%2Fr%2F3a713708-cef0-49ba-b842-af9504802f6a-v2',
+  remoteSessionId: '3a713708-cef0-49ba-b842-af9504802f6a-v2',
+  googleAccountEmail: 'dien07122012@gmail.com',
   systemStats: {
     cpuPercent: 18,
     ramPercent: 42,
@@ -168,11 +172,58 @@ export const storage = {
   },
 
   async getAllSessionsForProject(projectId: string): Promise<Session[]> {
-    // In demo / starter state, provide the default session for antigravity-app
+    // 1. First attempt to fetch real server sessions from Antigravity Brain on PC!
+    try {
+      const realSessions = await this.fetchRealServerSessions();
+      if (realSessions.length > 0) {
+        return realSessions;
+      }
+    } catch {}
+
+    // 2. Fallback to cached or starter sessions
     if (projectId === DEFAULT_PROJECTS[0].id) {
       const current = await this.getSession(DEFAULT_SESSION.id);
       return current ? [current] : [DEFAULT_SESSION];
     }
+    return [];
+  },
+
+  async fetchServerInfo(): Promise<any> {
+    try {
+      const res = await fetch('/api/server-info');
+      if (res.ok) return await res.json();
+    } catch {}
+    return null;
+  },
+
+  async fetchRealServerSessions(): Promise<Session[]> {
+    try {
+      const res = await fetch('/api/real-sessions');
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw) && raw.length > 0) {
+          return raw.map((s: any) => ({
+            id: s.id,
+            projectId: s.projectId || 'proj_antigravity_app',
+            title: s.title,
+            createdAt: s.createdAt || new Date().toISOString(),
+            updatedAt: s.updatedAt || new Date().toISOString(),
+            messages: [],
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  },
+
+  async fetchRealTranscript(sessionId: string): Promise<Message[]> {
+    try {
+      const res = await fetch(`/api/real-transcript/${sessionId}`);
+      if (res.ok) {
+        const messages = await res.json();
+        if (Array.isArray(messages)) return messages;
+      }
+    } catch {}
     return [];
   },
 };
