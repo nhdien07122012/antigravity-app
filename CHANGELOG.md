@@ -5,7 +5,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 9 - 2026-11-16
-- **Commit:** `aeaa761`
+- **Commit:** `d5a0f7d`
 - **Mục tiêu thay đổi tóm tắt:** Đồng bộ 100% tính năng phân loại hội thoại theo từng Project giữa Mobile (.ipa) và Windows (Web), giải quyết triệt để lỗi mất kết nối host trên native iOS qua bộ cấu hình Server URL động, hỗ trợ phân nhóm Accordion Project Folders, tìm kiếm hội thoại, và cấp phép Apple App Transport Security (ATS).
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `src/services/storage.ts`: Xây dựng hàm `getServerBaseUrl()` tự động chuyển tiếp API call sang máy tính server (`http://192.168.1.4:5173` hoặc Tailscale) khi app chạy trong môi trường Native Capacitor iOS (`capacitor://` / `ionic://`); hỗ trợ lưu và lấy URL server từ Preferences.
@@ -20,7 +20,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 9`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert aeaa761 --no-edit
+  git revert d5a0f7d --no-edit
   ```
 
 ---
