@@ -4,6 +4,34 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 18 - 2026-11-16
+- **Commit:** `74cfd12`
+- **Mục tiêu thay đổi tóm tắt:** Tái thiết kế toàn diện Dock với kiến trúc **Separated Viewport (Zero-Overlap Guarantee)**: giải quyết triệt để lỗi dock che khuất ô nhập chat, nút gửi tin nhắn, mic và danh sách hội thoại; web container nằm hoàn toàn phía trên dock; dock Liquid Glass Dynamic Island chuẩn iOS thích ứng Dark/Light Mode; bổ sung cơ chế tự động ẩn dock khi mở bàn phím và viên nhộng phục hồi (`restorePill`) khi thu gọn/toàn màn hình.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Kiến trúc Không-Giao-Thoa (Zero-Overlap Viewport):**
+      - Thay đổi cơ chế neo giao diện: `containerView.bottomAnchor` được neo chặt chẽ vào mép trên của dock (`dockView.topAnchor, constant: -4`).
+      - Nhờ đó, toàn bộ khung chat của Google Antigravity Remote, nút chọn mô hình Gemini, nút mic và mũi tên gửi tin nhắn `[->]` luôn nằm phía TRÊN dock một cách tự nhiên và tách bạch, tuyệt đối không bị dock đè lên bất kể đang ở màn hình nào.
+    - **Thiết kế Dock Liquid Glass Dynamic Island (Build 18):**
+      - Chiều cao chuẩn 42pt, bo tròn mềm mại liên tục (`cornerRadius: 21`), viền kính siêu mỏng (`0.65pt`), hiệu ứng làm mờ nền `UIBlurEffect` thích ứng động với Dark Mode / Light Mode.
+      - Bố cục 2 phần khoa học: Phần bên trái là thanh cuộn ngang danh sách dự án với hiệu ứng tab phát sáng; phần bên phải là vạch ngăn thanh lịch và cụm nút thao tác: `+` (Quét QR / Thêm link), `↻` (Tải lại), `aA` (Cỡ chữ & Thu phóng 70%-220%), `⤢` (Toàn màn hình), `⌄` (Thu gọn).
+    - **Tự Động Ẩn Khi Nhập Liệu (Keyboard Avoidance):**
+      - Lắng nghe `UIResponder.keyboardWillShowNotification` và `keyboardWillHideNotification`.
+      - Khi người dùng chạm vào ô chat để gõ phím, dock tự động ẩn êm dịu (`alpha = 0`) giúp bàn phím ảo hiển thị trọn vẹn, không vướng víu. Khi đóng bàn phím, dock tự động phục hồi.
+    - **Chế Độ Thu Gọn & Toàn Màn Hình Linh Hoạt:**
+      - Khi bấm `⌄` hoặc `⤢`, dock trượt xuống mép dưới và ẩn đi, web container tự động bung 100% diện tích màn hình.
+      - Xuất hiện viên nhộng phục hồi Liquid Glass mini (`restorePill`) nhỏ gọn ở góc dưới với tiêu đề dự án hiện tại (`[ ⚡ Tên-dự-án ▴ ]`), hỗ trợ kéo thả tự do (`UIPanGestureRecognizer`) bám mép màn hình. Chạm vào viên nhộng để bung lại toàn bộ dock.
+    - **Tối Ưu Header & Loại Bỏ Logo Dev Antigravity:**
+      - Bổ sung bộ lọc CSS và `MutationObserver` nâng cao tự động nhận diện và ẩn triệt để phần tử logo `[A]` ở góc trên trái, đồng thời loại bỏ khoảng cách đệm trên cùng của header, giúp chip máy chủ `● DELL5770-DELL` có đầy đủ không gian hiển thị.
+  - `src/version.ts`: Tăng số hiệu bản dựng lên `Build 18` (`v1.0.0 (Build 18)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 18`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 74cfd12 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 16 - 2026-11-16
 - **Commit:** `233f965`
 - **Mục tiêu thay đổi tóm tắt:** Thiết kế lại toàn diện Float Dock thành **Dynamic Island Mini/Expanded Capsule 2.0**: mặc định thu gọn thành viên capsule mini góc phải (`[ ⚡ Tên dự án ▴ ]`), hỗ trợ kéo di chuyển tự do (Draggable Pan), chạm để bung mở toàn phần thanh chuyển tab và tự động thu gọn sau khi chọn; đệm cuộn an toàn `contentInset.bottom = 54` và sử dụng `MutationObserver` ẩn triệt để logo dev Antigravity góc trên.

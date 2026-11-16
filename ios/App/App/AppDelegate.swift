@@ -112,30 +112,30 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     private var activeWorkspaceId: String = ""
     private var webViews: [String: WKWebView] = [:]
 
+    // Container for WKWebViews
     private let containerView = UIView()
+    private var containerBottomToDockConstraint: NSLayoutConstraint!
+    private var containerBottomToViewConstraint: NSLayoutConstraint!
 
-    // Dynamic Island Floating Capsule (Dock 2.0)
+    // Liquid Glass Dynamic Island Bottom Dock (Build 17)
     private let dockView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
-    private let miniDockButton = UIButton(type: .system)
-    private let expandedContentView = UIView()
     private let dockScrollView = UIScrollView()
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
+    private let dividerView = UIView()
     private let addButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
     private let fullscreenButton = UIButton(type: .system)
     private let collapseButton = UIButton(type: .system)
-    private let restoreButton = UIButton(type: .system)
 
-    // Constraints for Collapsed vs Expanded
-    private var dockLeadingConstraint: NSLayoutConstraint?
-    private var dockTrailingConstraint: NSLayoutConstraint?
-    private var dockWidthConstraint: NSLayoutConstraint?
-    private var dockBottomConstraint: NSLayoutConstraint?
-    private var dockHeightConstraint: NSLayoutConstraint?
+    // Floating Mini Restore Pill (For Fullscreen & Minimized Modes)
+    private let restorePill = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let restorePillButton = UIButton(type: .system)
+    private var restorePillTrailingConstraint: NSLayoutConstraint!
+    private var restorePillBottomConstraint: NSLayoutConstraint!
 
-    private var isDockExpanded = false
+    private var isDockMinimized = false
     private var isFullscreen = false
     private var currentZoom: CGFloat = 1.0
 
@@ -157,6 +157,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         loadWorkspaces()
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         updateDockTheme()
@@ -165,30 +169,41 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
     private func updateDockTheme() {
         let isDark = traitCollection.userInterfaceStyle == .dark
-        dockView.effect = UIBlurEffect(style: isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight)
+        let blurStyle: UIBlurEffect.Style = isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight
+        dockView.effect = UIBlurEffect(style: blurStyle)
+        restorePill.effect = UIBlurEffect(style: blurStyle)
 
-        let dockContentView = dockView.contentView
-        dockContentView.backgroundColor = isDark
-            ? UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.75)
-            : UIColor(red: 0.98, green: 0.98, blue: 1.00, alpha: 0.82)
+        let dockBg = isDark
+            ? UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 0.85)
+            : UIColor(red: 0.98, green: 0.98, blue: 1.00, alpha: 0.88)
+        dockView.contentView.backgroundColor = dockBg
+        restorePill.contentView.backgroundColor = dockBg
 
-        dockView.layer.borderColor = isDark
-            ? UIColor(white: 1.0, alpha: 0.18).cgColor
+        let borderColor = isDark
+            ? UIColor(white: 1.0, alpha: 0.20).cgColor
             : UIColor(white: 0.0, alpha: 0.12).cgColor
+
+        dockView.layer.borderColor = borderColor
+        restorePill.layer.borderColor = borderColor
 
         dockView.layer.shadowColor = UIColor.black.cgColor
         dockView.layer.shadowOpacity = isDark ? 0.45 : 0.18
+        restorePill.layer.shadowColor = UIColor.black.cgColor
+
+        dividerView.backgroundColor = isDark
+            ? UIColor(white: 1.0, alpha: 0.18)
+            : UIColor(white: 0.0, alpha: 0.14)
 
         let tintColor: UIColor = isDark ? .white : .label
         addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
-        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
+        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.25 : 0.12)
         reloadButton.tintColor = tintColor.withAlphaComponent(0.85)
         settingsButton.tintColor = tintColor.withAlphaComponent(0.85)
         fullscreenButton.tintColor = tintColor.withAlphaComponent(0.85)
         collapseButton.tintColor = tintColor.withAlphaComponent(0.85)
 
-        miniDockButton.setTitleColor(isDark ? .white : .label, for: .normal)
-        miniDockButton.tintColor = isDark ? .white : .label
+        restorePillButton.setTitleColor(isDark ? .white : .label, for: .normal)
+        restorePillButton.tintColor = isDark ? .white : .label
     }
 
     // MARK: - Setup UI Elements
@@ -197,42 +212,25 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
 
-        // 2. Floating Dock Capsule
+        // 2. Liquid Glass Dynamic Island Dock
         dockView.translatesAutoresizingMaskIntoConstraints = false
-        dockView.layer.cornerRadius = 16
+        dockView.layer.cornerRadius = 21
         dockView.layer.cornerCurve = .continuous
         dockView.layer.masksToBounds = false
-        dockView.layer.shadowRadius = 14
+        dockView.layer.shadowRadius = 16
         dockView.layer.shadowOffset = CGSize(width: 0, height: 4)
         dockView.layer.borderWidth = 0.65
         view.addSubview(dockView)
 
         let dockContentView = dockView.contentView
-        dockContentView.layer.cornerRadius = 16
+        dockContentView.layer.cornerRadius = 21
         dockContentView.layer.cornerCurve = .continuous
         dockContentView.clipsToBounds = true
 
-        // 2a. Mini Dock Button (Visible when Collapsed)
-        miniDockButton.translatesAutoresizingMaskIntoConstraints = false
-        miniDockButton.setImage(UIImage(systemName: "folder.fill"), for: .normal)
-        miniDockButton.titleLabel?.font = UIFont.systemFont(ofSize: 11, weight: .bold)
-        miniDockButton.contentEdgeInsets = UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)
-        miniDockButton.addTarget(self, action: #selector(toggleDockExpanded), for: .touchUpInside)
-        dockContentView.addSubview(miniDockButton)
-
-        // Add pan gesture to drag the mini dock anywhere
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleDockPan(_:)))
-        dockView.addGestureRecognizer(panGesture)
-
-        // 2b. Expanded Content View (Visible when Expanded)
-        expandedContentView.translatesAutoresizingMaskIntoConstraints = false
-        expandedContentView.alpha = 0
-        dockContentView.addSubview(expandedContentView)
-
-        // 3. Scrollable Project Tabs inside Expanded View
+        // 3. Scrollable Project Tabs inside Dock
         dockScrollView.translatesAutoresizingMaskIntoConstraints = false
         dockScrollView.showsHorizontalScrollIndicator = false
-        expandedContentView.addSubview(dockScrollView)
+        dockContentView.addSubview(dockScrollView)
 
         dockStackView.translatesAutoresizingMaskIntoConstraints = false
         dockStackView.axis = .horizontal
@@ -240,107 +238,83 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         dockStackView.alignment = .center
         dockScrollView.addSubview(dockStackView)
 
-        // 4. Action Buttons Stack
+        // 4. Subtle Vertical Divider
+        dividerView.translatesAutoresizingMaskIntoConstraints = false
+        dockContentView.addSubview(dividerView)
+
+        // 5. Action Buttons Stack
         actionStackView.translatesAutoresizingMaskIntoConstraints = false
         actionStackView.axis = .horizontal
         actionStackView.spacing = 3
         actionStackView.alignment = .center
-        expandedContentView.addSubview(actionStackView)
+        dockContentView.addSubview(actionStackView)
 
-        // Add (+) Button
-        addButton.translatesAutoresizingMaskIntoConstraints = false
-        addButton.setImage(UIImage(systemName: "plus"), for: .normal)
-        addButton.layer.cornerRadius = 13
-        addButton.layer.cornerCurve = .continuous
-        addButton.addTarget(self, action: #selector(handleAddWorkspace), for: .touchUpInside)
+        setupActionButton(addButton, iconName: "plus", action: #selector(handleAddWorkspace))
+        setupActionButton(reloadButton, iconName: "arrow.clockwise", action: #selector(handleReloadActiveTab))
+        setupActionButton(settingsButton, iconName: "textformat.size", action: #selector(handleSettingsTapped))
+        setupActionButton(fullscreenButton, iconName: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullscreen))
+        setupActionButton(collapseButton, iconName: "chevron.down", action: #selector(toggleDockMinimized))
+
         actionStackView.addArrangedSubview(addButton)
-
-        // Reload (↻) Button
-        reloadButton.translatesAutoresizingMaskIntoConstraints = false
-        reloadButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
-        reloadButton.layer.cornerRadius = 13
-        reloadButton.layer.cornerCurve = .continuous
-        reloadButton.addTarget(self, action: #selector(handleReloadActiveTab), for: .touchUpInside)
         actionStackView.addArrangedSubview(reloadButton)
-
-        // Settings (aA / ⚙) Button
-        settingsButton.translatesAutoresizingMaskIntoConstraints = false
-        settingsButton.setImage(UIImage(systemName: "textformat.size"), for: .normal)
-        settingsButton.layer.cornerRadius = 13
-        settingsButton.layer.cornerCurve = .continuous
-        settingsButton.addTarget(self, action: #selector(handleSettingsTapped), for: .touchUpInside)
         actionStackView.addArrangedSubview(settingsButton)
-
-        // Fullscreen (⤢) Button
-        fullscreenButton.translatesAutoresizingMaskIntoConstraints = false
-        fullscreenButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right"), for: .normal)
-        fullscreenButton.layer.cornerRadius = 13
-        fullscreenButton.layer.cornerCurve = .continuous
-        fullscreenButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
         actionStackView.addArrangedSubview(fullscreenButton)
-
-        // Collapse (⌄) Button
-        collapseButton.translatesAutoresizingMaskIntoConstraints = false
-        collapseButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
-        collapseButton.layer.cornerRadius = 13
-        collapseButton.layer.cornerCurve = .continuous
-        collapseButton.addTarget(self, action: #selector(toggleDockExpanded), for: .touchUpInside)
         actionStackView.addArrangedSubview(collapseButton)
 
-        // 5. Restore Floating Button (shown in fullscreen)
-        restoreButton.translatesAutoresizingMaskIntoConstraints = false
-        restoreButton.setImage(UIImage(systemName: "arrow.down.right.and.arrow.up.left"), for: .normal)
-        restoreButton.tintColor = .white
-        restoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        restoreButton.layer.cornerRadius = 16
-        restoreButton.layer.cornerCurve = .continuous
-        restoreButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
-        restoreButton.layer.borderWidth = 0.5
-        restoreButton.layer.shadowColor = UIColor.black.cgColor
-        restoreButton.layer.shadowOpacity = 0.4
-        restoreButton.layer.shadowRadius = 8
-        restoreButton.alpha = 0
-        restoreButton.addTarget(self, action: #selector(toggleFullscreen), for: .touchUpInside)
-        view.addSubview(restoreButton)
+        // 6. Floating Mini Restore Pill (Shown in fullscreen / minimized)
+        restorePill.translatesAutoresizingMaskIntoConstraints = false
+        restorePill.layer.cornerRadius = 15
+        restorePill.layer.cornerCurve = .continuous
+        restorePill.layer.masksToBounds = false
+        restorePill.layer.shadowRadius = 10
+        restorePill.layer.shadowOffset = CGSize(width: 0, height: 3)
+        restorePill.layer.shadowOpacity = 0.35
+        restorePill.layer.borderWidth = 0.5
+        restorePill.alpha = 0
+        view.addSubview(restorePill)
 
-        // Setup Dynamic Constraints
-        dockBottomConstraint = dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -4)
-        dockTrailingConstraint = dockView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12)
-        dockLeadingConstraint = dockView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12)
-        dockHeightConstraint = dockView.heightAnchor.constraint(equalToConstant: 32)
-        dockWidthConstraint = dockView.widthAnchor.constraint(greaterThanOrEqualToConstant: 80)
+        let pillContentView = restorePill.contentView
+        pillContentView.layer.cornerRadius = 15
+        pillContentView.layer.cornerCurve = .continuous
+        pillContentView.clipsToBounds = true
 
-        // Initial Collapsed State
-        dockLeadingConstraint?.isActive = false
-        dockTrailingConstraint?.isActive = true
-        dockBottomConstraint?.isActive = true
-        dockHeightConstraint?.isActive = true
-        dockWidthConstraint?.isActive = true
+        restorePillButton.translatesAutoresizingMaskIntoConstraints = false
+        restorePillButton.titleLabel?.font = UIFont.systemFont(ofSize: 11, weight: .bold)
+        restorePillButton.setImage(UIImage(systemName: "folder.fill"), for: .normal)
+        restorePillButton.contentEdgeInsets = UIEdgeInsets(top: 5, left: 10, bottom: 5, right: 10)
+        restorePillButton.addTarget(self, action: #selector(handleRestorePillTapped), for: .touchUpInside)
+        pillContentView.addSubview(restorePillButton)
+
+        let pillPan = UIPanGestureRecognizer(target: self, action: #selector(handlePillPan(_:)))
+        restorePill.addGestureRecognizer(pillPan)
+
+        // Setup Layout Constraints
+        // CRITICAL ZERO-OVERLAP GUARANTEE: In normal mode, containerView.bottomAnchor is pinned
+        // strictly to dockView.topAnchor so Google's chat box & buttons are NEVER covered!
+        containerBottomToDockConstraint = containerView.bottomAnchor.constraint(equalTo: dockView.topAnchor, constant: -4)
+        containerBottomToViewConstraint = containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+
+        restorePillTrailingConstraint = restorePill.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12)
+        restorePillBottomConstraint = restorePill.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
 
         NSLayoutConstraint.activate([
             // Container pinned directly below status bar
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            containerBottomToDockConstraint,
 
-            // Mini button fills dock in collapsed mode
-            miniDockButton.topAnchor.constraint(equalTo: dockContentView.topAnchor),
-            miniDockButton.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
-            miniDockButton.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor),
-            miniDockButton.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor),
+            // Dock pinned to bottom safe area with comfortable horizontal margins
+            dockView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            dockView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
+            dockView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -3),
+            dockView.heightAnchor.constraint(equalToConstant: 42),
 
-            // Expanded content view fills dock in expanded mode
-            expandedContentView.topAnchor.constraint(equalTo: dockContentView.topAnchor),
-            expandedContentView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
-            expandedContentView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor),
-            expandedContentView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor),
-
-            // Expanded elements
-            dockScrollView.leadingAnchor.constraint(equalTo: expandedContentView.leadingAnchor, constant: 6),
-            dockScrollView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -6),
-            dockScrollView.topAnchor.constraint(equalTo: expandedContentView.topAnchor),
-            dockScrollView.bottomAnchor.constraint(equalTo: expandedContentView.bottomAnchor),
+            // Scrollable workspace tabs
+            dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 6),
+            dockScrollView.trailingAnchor.constraint(equalTo: dividerView.leadingAnchor, constant: -5),
+            dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor),
+            dockScrollView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
 
             dockStackView.leadingAnchor.constraint(equalTo: dockScrollView.leadingAnchor),
             dockStackView.trailingAnchor.constraint(equalTo: dockScrollView.trailingAnchor),
@@ -348,25 +322,41 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             dockStackView.bottomAnchor.constraint(equalTo: dockScrollView.bottomAnchor),
             dockStackView.heightAnchor.constraint(equalTo: dockScrollView.heightAnchor),
 
-            actionStackView.trailingAnchor.constraint(equalTo: expandedContentView.trailingAnchor, constant: -6),
-            actionStackView.centerYAnchor.constraint(equalTo: expandedContentView.centerYAnchor),
+            // Vertical divider
+            dividerView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -5),
+            dividerView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
+            dividerView.widthAnchor.constraint(equalToConstant: 0.8),
+            dividerView.heightAnchor.constraint(equalToConstant: 22),
 
-            addButton.widthAnchor.constraint(equalToConstant: 26),
-            addButton.heightAnchor.constraint(equalToConstant: 26),
-            reloadButton.widthAnchor.constraint(equalToConstant: 26),
-            reloadButton.heightAnchor.constraint(equalToConstant: 26),
-            settingsButton.widthAnchor.constraint(equalToConstant: 26),
-            settingsButton.heightAnchor.constraint(equalToConstant: 26),
-            fullscreenButton.widthAnchor.constraint(equalToConstant: 26),
-            fullscreenButton.heightAnchor.constraint(equalToConstant: 26),
-            collapseButton.widthAnchor.constraint(equalToConstant: 26),
-            collapseButton.heightAnchor.constraint(equalToConstant: 26),
+            // Action buttons stack
+            actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -6),
+            actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
 
-            // Restore button
-            restoreButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            restoreButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            restoreButton.widthAnchor.constraint(equalToConstant: 34),
-            restoreButton.heightAnchor.constraint(equalToConstant: 34)
+            // Restore Pill
+            restorePillTrailingConstraint,
+            restorePillBottomConstraint,
+            restorePill.heightAnchor.constraint(equalToConstant: 30),
+
+            restorePillButton.topAnchor.constraint(equalTo: pillContentView.topAnchor),
+            restorePillButton.bottomAnchor.constraint(equalTo: pillContentView.bottomAnchor),
+            restorePillButton.leadingAnchor.constraint(equalTo: pillContentView.leadingAnchor),
+            restorePillButton.trailingAnchor.constraint(equalTo: pillContentView.trailingAnchor)
+        ])
+
+        // Register keyboard observers to auto-hide dock during typing
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+
+    private func setupActionButton(_ button: UIButton, iconName: String, action: Selector) {
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: iconName), for: .normal)
+        button.layer.cornerRadius = 13
+        button.layer.cornerCurve = .continuous
+        button.addTarget(self, action: action, for: .touchUpInside)
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 26),
+            button.heightAnchor.constraint(equalToConstant: 26)
         ])
     }
 
@@ -386,7 +376,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         updateActiveVisibility()
         renderDockTabs()
-        updateMiniDockTitle()
+        updateRestorePillTitle()
     }
 
     private func ensureWebView(for ws: RemoteWorkspace) -> WKWebView {
@@ -405,9 +395,6 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = self
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        // Add bottom inset so page content can scroll comfortably above the dock
-        webView.scrollView.contentInset.bottom = 54
-        webView.scrollView.scrollIndicatorInsets.bottom = 54
         webView.backgroundColor = .systemBackground
 
         containerView.addSubview(webView)
@@ -434,12 +421,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         updateActiveVisibility()
         renderDockTabs()
-        updateMiniDockTitle()
-
-        // Auto-collapse after switching to give full screen immediately
-        if isDockExpanded {
-            toggleDockExpanded()
-        }
+        updateRestorePillTitle()
 
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -451,11 +433,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         }
     }
 
-    private func updateMiniDockTitle() {
+    private func updateRestorePillTitle() {
         if let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
-            miniDockButton.setTitle(" \(active.name) ▴", for: .normal)
+            restorePillButton.setTitle(" \(active.name) ▴", for: .normal)
         } else {
-            miniDockButton.setTitle(" Dự án ▴", for: .normal)
+            restorePillButton.setTitle(" Dự án ▴", for: .normal)
         }
     }
 
@@ -474,10 +456,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
             button.translatesAutoresizingMaskIntoConstraints = false
             button.tag = workspaces.firstIndex(where: { $0.id == ws.id }) ?? 0
 
-            button.setTitle(ws.name, for: .normal)
-            button.setTitleColor(isActive ? .white : (isDark ? UIColor(white: 0.88, alpha: 1.0) : UIColor.label), for: .normal)
+            let prefix = isActive ? "● " : ""
+            button.setTitle("\(prefix)\(ws.name)", for: .normal)
+            button.setTitleColor(isActive ? .white : (isDark ? UIColor(white: 0.90, alpha: 1.0) : UIColor.label), for: .normal)
             button.titleLabel?.font = UIFont.systemFont(ofSize: 11, weight: isActive ? .bold : .medium)
-            button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 9, bottom: 4, right: 9)
+            button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)
 
             button.backgroundColor = isActive
                 ? UIColor(red: 0.12, green: 0.45, blue: 1.0, alpha: 0.95)
@@ -506,54 +489,85 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
     }
 
     // MARK: - Toggle Expanded / Collapsed Dock
-    @objc private func toggleDockExpanded() {
-        isDockExpanded.toggle()
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    @objc private func toggleDockMinimized() {
+        isDockMinimized = true
+        applyDockVisibilityState(animated: true)
+    }
 
-        UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: .curveEaseInOut) {
-            if self.isDockExpanded {
-                // Expand to full bottom bar
-                self.dockWidthConstraint?.isActive = false
-                self.dockLeadingConstraint?.isActive = true
-                self.dockTrailingConstraint?.isActive = true
-                self.dockHeightConstraint?.constant = 40
-                self.dockView.layer.cornerRadius = 20
+    @objc private func toggleFullscreen() {
+        isFullscreen.toggle()
+        applyDockVisibilityState(animated: true)
+    }
 
-                self.miniDockButton.alpha = 0
-                self.expandedContentView.alpha = 1
+    @objc private func handleRestorePillTapped() {
+        isDockMinimized = false
+        isFullscreen = false
+        applyDockVisibilityState(animated: true)
+    }
+
+    private func applyDockVisibilityState(animated: Bool) {
+        let shouldHide = isDockMinimized || isFullscreen
+
+        let duration = animated ? 0.32 : 0.0
+        UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 0.82, initialSpringVelocity: 0.4, options: .curveEaseInOut) {
+            if shouldHide {
+                self.containerBottomToDockConstraint.isActive = false
+                self.containerBottomToViewConstraint.isActive = true
+                self.dockView.alpha = 0
+                self.dockView.transform = CGAffineTransform(translationX: 0, y: 35)
+                self.restorePill.alpha = 0.85
+                self.restorePill.transform = .identity
             } else {
-                // Collapse to mini corner badge
-                self.dockLeadingConstraint?.isActive = false
-                self.dockWidthConstraint?.isActive = true
-                self.dockTrailingConstraint?.isActive = true
-                self.dockHeightConstraint?.constant = 32
-                self.dockView.layer.cornerRadius = 16
-
-                self.miniDockButton.alpha = 1
-                self.expandedContentView.alpha = 0
+                self.containerBottomToViewConstraint.isActive = false
+                self.containerBottomToDockConstraint.isActive = true
+                self.dockView.alpha = 1
+                self.dockView.transform = .identity
+                self.restorePill.alpha = 0
+                self.restorePill.transform = CGAffineTransform(translationX: 0, y: 20)
             }
             self.view.layoutIfNeeded()
         }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
-    // Drag mini dock anywhere along bottom/edges
-    @objc private func handleDockPan(_ gesture: UIPanGestureRecognizer) {
-        guard !isDockExpanded else { return }
+    // Drag mini restore pill anywhere along edges
+    @objc private func handlePillPan(_ gesture: UIPanGestureRecognizer) {
         let translation = gesture.translation(in: view)
 
         if gesture.state == .changed {
-            dockView.center = CGPoint(x: dockView.center.x + translation.x, y: dockView.center.y + translation.y)
+            restorePillTrailingConstraint.constant += translation.x
+            restorePillBottomConstraint.constant += translation.y
             gesture.setTranslation(.zero, in: view)
         } else if gesture.state == .ended {
-            // Snap gently to nearest edge
-            let midX = view.bounds.midX
-            let targetX = (dockView.center.x < midX) ? 60.0 : (view.bounds.width - 60.0)
-            let safeBottom = view.bounds.height - view.safeAreaInsets.bottom - 24.0
-            let targetY = max(view.safeAreaInsets.top + 50.0, min(safeBottom, dockView.center.y))
+            // Clamp pill inside safe bounds
+            let maxTrailing = -6.0
+            let minTrailing = -(view.bounds.width - restorePill.bounds.width - 12.0)
+            let clampedTrailing = min(maxTrailing, max(minTrailing, Double(restorePillTrailingConstraint.constant)))
 
-            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.5, options: .curveEaseOut) {
-                self.dockView.center = CGPoint(x: targetX, y: targetY)
+            let minBottom = -6.0
+            let maxBottom = -(view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom - 60.0)
+            let clampedBottom = min(minBottom, max(maxBottom, Double(restorePillBottomConstraint.constant)))
+
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+                self.restorePillTrailingConstraint.constant = CGFloat(clampedTrailing)
+                self.restorePillBottomConstraint.constant = CGFloat(clampedBottom)
+                self.view.layoutIfNeeded()
             }
+        }
+    }
+
+    // Keyboard handling: auto-hide dock during typing so nothing is obscured
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        guard !isDockMinimized && !isFullscreen else { return }
+        UIView.animate(withDuration: 0.22) {
+            self.dockView.alpha = 0
+        }
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        guard !isDockMinimized && !isFullscreen else { return }
+        UIView.animate(withDuration: 0.22) {
+            self.dockView.alpha = 1
         }
     }
 
@@ -609,7 +623,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
                     self.workspaces[idx].name = newName
                     WorkspaceStore.shared.saveWorkspaces(self.workspaces)
                     self.renderDockTabs()
-                    self.updateMiniDockTitle()
+                    self.updateRestorePillTitle()
                 }
             }
         }))
@@ -638,7 +652,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
         updateActiveVisibility()
         renderDockTabs()
-        updateMiniDockTitle()
+        updateRestorePillTitle()
     }
 
     @objc private func handleAddWorkspace() {
@@ -718,42 +732,39 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
         webView.evaluateJavaScript("document.body.style.zoom = '\(percent)%'", completionHandler: nil)
     }
 
-    @objc private func toggleFullscreen() {
-        isFullscreen.toggle()
-        UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
-            self.dockView.alpha = self.isFullscreen ? 0 : 1
-            self.dockView.transform = self.isFullscreen ? CGAffineTransform(translationX: 0, y: 30) : .identity
-            self.restoreButton.alpha = self.isFullscreen ? 1 : 0
-        }
-    }
-
     // MARK: - WKNavigationDelegate
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Continuous cleaner script with MutationObserver: hides dev logo and eliminates extra header padding
         let script = """
         (function() {
             var style = document.createElement('style');
-            style.id = 'ag-mobile-cleaner-v2';
+            style.id = 'ag-mobile-cleaner-v3';
             style.textContent = `
-                header, nav, [role="banner"], .boqOnegoogleliteOgbOneGoogleBar, #gb {
+                header, nav, [role="banner"], [class*="header" i], [class*="topbar" i], .boqOnegoogleliteOgbOneGoogleBar, #gb {
                     padding-top: 0px !important;
                     margin-top: 0px !important;
                 }
+                [aria-label*="Antigravity" i], [title*="Antigravity" i] {
+                    display: none !important;
+                }
             `;
-            if (!document.getElementById('ag-mobile-cleaner-v2')) {
-                document.head.appendChild(style);
+            if (!document.getElementById('ag-mobile-cleaner-v3')) {
+                (document.head || document.documentElement).appendChild(style);
             }
 
             function removeDevLogo() {
-                var items = document.querySelectorAll('header svg, [role="banner"] svg, nav svg, header img, [role="banner"] img, nav img, header a, nav a');
-                for (var i = 0; i < items.length; i++) {
-                    var el = items[i];
+                var candidates = document.querySelectorAll('svg, img, [role="img"], a, button');
+                for (var i = 0; i < candidates.length; i++) {
+                    var el = candidates[i];
                     var rect = el.getBoundingClientRect();
                     // Antigravity dev logo sits in the top-left area
-                    if (rect.left >= 0 && rect.left < 55 && rect.top >= 0 && rect.top < 65) {
-                        var text = (el.innerText || el.closest('button')?.innerText || el.closest('a')?.innerText || '');
+                    if (rect.left >= 0 && rect.left < 60 && rect.top >= 0 && rect.top < 65 && rect.width > 12 && rect.width < 50) {
+                        var text = (el.innerText || el.closest('button, [role="button"]')?.innerText || '');
                         if (!text.includes('DELL') && !text.includes('Sign')) {
-                            el.style.display = 'none';
+                            var target = el.closest('a, button, div[role="button"]') || el;
+                            target.style.setProperty('display', 'none', 'important');
+                            target.style.setProperty('width', '0px', 'important');
+                            target.style.setProperty('visibility', 'hidden', 'important');
                         }
                     }
                 }
@@ -761,7 +772,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, QRScannerDeleg
 
             removeDevLogo();
             var observer = new MutationObserver(removeDevLogo);
-            observer.observe(document.body, { childList: true, subtree: true });
+            observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
         })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)
