@@ -5,7 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 23 - 2026-11-16
-- **Commit:** `93cc8da`
+- **Commit:** `2c55818`
+- **GitHub Actions Run:** `#43866818969` (success)
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi hiển thị mã nhị phân ZIP/IPA dạng chữ thô (`PK... Payload/Runner.app/...`) khi bấm tải IPA; bổ sung cơ chế đánh chặn điều hướng tải tệp an toàn (Safe Download Interception) trên `WKNavigationDelegate` & `WKUIDelegate`; hỗ trợ tải ngầm nền thông qua `URLSessionDownloadTask` kèm thanh tiến trình trực quan, tự động kích hoạt bảng chia sẻ iOS (`UIActivityViewController`) cho TrollStore / SideStore / Files; đồng thời tích hợp thêm nút mở tải trực tiếp qua Safari và sao chép link cài đặt.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -28,7 +29,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 23`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 93cc8da --no-edit
+  git revert 2c55818 --no-edit
   ```
 
 ---
