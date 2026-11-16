@@ -76,14 +76,25 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
 
   const handleDownloadClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    const url = release?.downloadUrl || directIpaUrl;
+    const filename = release?.assetName || 'AntigravityMobile.ipa';
     if ((window as any).webkit?.messageHandlers?.antigravityNative) {
-      (window as any).webkit.messageHandlers.antigravityNative.postMessage({ action: 'openDownloadManager' });
+      (window as any).webkit.messageHandlers.antigravityNative.postMessage({
+        action: 'downloadUrl',
+        url: url,
+        filename: filename,
+      });
       onClose();
       return;
     }
 
-    const url = release?.downloadUrl || directIpaUrl;
-    window.open(url, '_blank');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleStartCustomDownload = (e: React.FormEvent) => {
@@ -276,16 +287,15 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
                 <span>Chia Sẻ Để Sideload (TrollStore / SideStore)</span>
               </button>
 
-              {/* Open Safari */}
-              <a
-                href={release?.downloadUrl || directIpaUrl}
-                target="_system"
-                rel="noopener noreferrer"
+              {/* Direct Download Trigger */}
+              <button
+                type="button"
+                onClick={handleDownloadClick}
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 border border-sky-200 dark:border-sky-900/50 text-sky-700 dark:text-sky-300 rounded-2xl font-semibold text-xs active:scale-95 transition"
               >
                 <RocketLaunchIcon className="w-3.5 h-3.5 stroke-[2.2]" />
-                <span>Mở Tải Qua Trình Duyệt Safari</span>
-              </a>
+                <span>Tải Trực Tiếp Vào Máy Chuẩn Safari</span>
+              </button>
 
               {/* Open Download Manager */}
               <button

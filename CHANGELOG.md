@@ -4,6 +4,46 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 28 - 2026-11-16
+- **Commit:** `da9b476`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi WKWebView mở và hiển thị file IPA/nén dạng ký tự nhị phân thô (`PK... Payload/Runner.app/...`) bằng cơ chế chặn download an toàn và tự động khôi phục giao diện; Bổ sung tùy biến linh hoạt vị trí thanh Dock (Cạnh dọc bên trái / Cạnh dọc bên phải / Cạnh đáy) và chế độ hiển thị Dock (Luôn hiện / Tự động ẩn kèm mini handle pill mở rộng) trên cả Native iOS và Web UI.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Khắc phục lỗi hiển thị tệp nhị phân IPA / Archive (`PK...`):**
+      - Nâng cấp `isDownloadableUrl(_:)`: Mở rộng nhận diện mọi định dạng tệp tải về (`.ipa`, `.zip`, `.deb`, `.tar`, `.gz`, `.tgz`, `.7z`, `.rar`, `.dmg`, `.pkg`, `.pdf`, `.apk`, `.dylib`, `.mobileconfig`, `.bin`, `.iso`) trong đường dẫn, tham số truy vấn (`filename=`), hỗ trợ cả định dạng mã hóa ký tự URL `%2eipa` và URL release download.
+      - Nâng cấp `webView(_:decidePolicyFor navigationResponse:)`:
+        - Kiểm tra tiêu đề `Content-Disposition`: Nếu chứa `attachment` hoặc tên file tải về, trích xuất chính xác tên file và hủy điều hướng (`.cancel`), chuyển ngay sang hộp thoại tải về chuẩn Safari.
+        - Kiểm tra `MIME type`: Chặn toàn bộ các kiểu dữ liệu nhị phân/nén (`application/octet-stream`, `binary/octet-stream`, `application/x-itunes-ipa`, `application/zip`, `application/x-zip-compressed`, v.v.) và khi `canShowMIMEType == false`. Tuyệt đối không cho phép WKWebView giải mã và hiển thị nhị phân dưới dạng văn bản rác trên màn hình.
+      - Bổ sung cơ chế tự phục hồi an toàn trong `webView(_:didFinish:)`: Tự động kiểm tra 10 ký tự đầu của DOM, nếu phát hiện tiền tố `PK` (dấu hiệu zip/IPA bị hiển thị dạng văn bản), hệ thống lập tức kích hoạt tải tệp và tự động lùi về trang trước (`goBack()`) hoặc tải lại URL an toàn của workspace, giúp màn hình người dùng luôn sạch sẽ.
+    - **Tùy biến vị trí thanh Dock (Left vertical / Right vertical / Bottom):**
+      - Thêm `enum DockPosition: String` (`.bottom`, `.left`, `.right`), lưu trạng thái vào `UserDefaults` (`ag_dock_position`).
+      - Hàm `applyDockLayout(for:animated:)`:
+        - Chế độ `.bottom`: Dock nằm ngang ở cạnh đáy màn hình, trên home indicator, các tab hiển thị đầy đủ tên project.
+        - Chế độ `.left` / `.right`: Dock chuyển thành thanh nang dọc 48pt ở cạnh trái hoặc phải, căn giữa theo chiều dọc.
+        - Khi ở chế độ dọc: Các tab dự án tự động chuyển thành nút huy hiệu squircle 34x34pt hiển thị chữ cái đầu viết hoa của project (vd: `A` cho `antigravity-app`, `L` cho `LANMonitor`, `R` cho `Runner`) với viền sáng xanh khi active, nhấn giữ vẫn hiển thị đầy đủ menu quản lý tab.
+      - Hàm `updateWebViewInsets()`: Tự động điều chỉnh khoảng đệm cuộn (`contentInset` & `scrollIndicatorInsets`) tương ứng với vị trí dock (left: 58pt, right: 58pt, bottom: 64pt), đảm bảo nội dung webview không bao giờ bị dock che khuất.
+    - **Chế độ hiển thị Dock (Luôn Hiện / Tự Động Ẩn):**
+      - Thêm `enum DockDisplayMode: String` (`.always`, `.autohide`), lưu trạng thái vào `UserDefaults` (`ag_dock_display_mode`).
+      - Ở chế độ `.autohide`: Sau 4.5 giây không tương tác, dock tự động trượt ẩn vào cạnh màn hình và để lại một thanh điều khiển thu nhỏ thủy tinh (`miniDockTabButton`) với icon mũi tên mảnh (`chevron`). Chạm vào thanh mini sẽ lập tức bung dock ra với hiệu ứng lò xo mượt mà và rung phản hồi.
+      - Tương tác với dock hoặc chuyển tab tự động gia hạn bộ đếm thời gian.
+    - **Tích hợp vào Modern Settings Sheet (`ModernSettingsMenuViewController`):**
+      - Bổ sung khu vực **"VỊ TRÍ & HIỂN THỊ DOCK"**:
+        - Phân đoạn chọn Vị trí Dock: `[ ⬇️ Đáy | ⬅️ Cạnh Trái | ➡️ Cạnh Phải ]`.
+        - Phân đoạn chọn Chế độ hiển thị: `[ 👁️ Luôn Hiện | ⏱️ Tự Động Ẩn ]`.
+      - Chuyển đổi trạng thái có hiệu ứng động và áp dụng tức thì.
+  - `src/components/IPAManagerModal.tsx`:
+    - Thay thế liên kết trực tiếp bằng lệnh gọi native bridge `action: 'downloadUrl'` với tên file cụ thể, đảm bảo bấm tải IPA sẽ kích hoạt trình quản lý tải về Safari ngầm thay vì điều hướng làm hỏng trang webview.
+  - `src/components/SettingsModal.tsx`:
+    - Bổ sung giao diện tùy chọn Vị trí Dock (Đáy / Cạnh Trái / Cạnh Phải) và Chế độ hiển thị (Luôn Hiện / Tự Động Ẩn), đồng bộ dữ liệu hai chiều với native iOS.
+  - `src/version.ts`: Nâng cấp lên `Build 28` (`v1.0.0 (Build 28)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 28`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert da9b476 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 27 - 2026-11-16
 - **Commit:** `51f5f18`
 - **GitHub Actions Run:** `#43899466322` (success)

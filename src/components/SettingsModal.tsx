@@ -46,6 +46,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [autoSyncOnResume, setAutoSyncOnResume] = useState(true);
+  const [dockPosition, setDockPositionState] = useState<'bottom' | 'left' | 'right'>('bottom');
+  const [dockDisplayMode, setDockDisplayModeState] = useState<'always' | 'autohide'>('always');
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isSaved, setIsSaved] = useState(false);
   const [testNotificationStatus, setTestNotificationStatus] = useState<string | null>(null);
@@ -61,6 +63,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (savedAutoSync !== null) {
         setAutoSyncOnResume(savedAutoSync === 'true');
       }
+      const savedPos = localStorage.getItem('ag_dock_position') as 'bottom' | 'left' | 'right' | null;
+      if (savedPos) setDockPositionState(savedPos);
+      const savedMode = localStorage.getItem('ag_dock_display_mode') as 'always' | 'autohide' | null;
+      if (savedMode) setDockDisplayModeState(savedMode);
+
       setIsSaved(false);
       setTestNotificationStatus(null);
     }
@@ -72,6 +79,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     await workspaceStore.saveSettings(settings);
     localStorage.setItem('ag_notifications_enabled', String(notificationsEnabled));
     localStorage.setItem('ag_autosync_enabled', String(autoSyncOnResume));
+    localStorage.setItem('ag_dock_position', dockPosition);
+    localStorage.setItem('ag_dock_display_mode', dockDisplayMode);
+
+    if ((window as any).webkit?.messageHandlers?.antigravityNative) {
+      try {
+        (window as any).webkit.messageHandlers.antigravityNative.postMessage({
+          action: 'setDockPosition',
+          position: dockPosition,
+        });
+        (window as any).webkit.messageHandlers.antigravityNative.postMessage({
+          action: 'setDockDisplayMode',
+          mode: dockDisplayMode,
+        });
+      } catch (e) {}
+    }
+
     setIsSaved(true);
     if (onSettingsSaved) onSettingsSaved();
     setTimeout(() => {
@@ -235,6 +258,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <span className="text-[11px] font-bold">Quét QR</span>
               </button>
+            </div>
+          </div>
+
+          {/* Section: Dock Position & Display Mode */}
+          <div className="p-3.5 rounded-2xl bg-gray-50/80 dark:bg-white/5 border border-gray-200/80 dark:border-white/10 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-gray-900 dark:text-white">Vị Trí & Hiển Thị Dock</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Tùy biến thanh công cụ và chế độ hiển thị</p>
+            </div>
+
+            {/* Position Selector */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Vị Trí Dock:</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'bottom', label: '⬇️ Đáy' },
+                  { id: 'left', label: '⬅️ Cạnh Trái' },
+                  { id: 'right', label: '➡️ Cạnh Phải' },
+                ].map((pos) => (
+                  <button
+                    key={pos.id}
+                    type="button"
+                    onClick={() => setDockPositionState(pos.id as any)}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition ${
+                      dockPosition === pos.id
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {pos.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Display Mode Selector */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Chế Độ Hiển Thị:</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'always', label: '👁️ Luôn Hiện' },
+                  { id: 'autohide', label: '⏱️ Tự Động Ẩn' },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setDockDisplayModeState(mode.id as any)}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition ${
+                      dockDisplayMode === mode.id
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

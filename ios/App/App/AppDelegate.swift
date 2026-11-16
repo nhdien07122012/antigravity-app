@@ -136,6 +136,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 }
 
+// MARK: - Dock Layout & Display Mode Types
+enum DockPosition: String {
+    case bottom = "bottom"
+    case left = "left"
+    case right = "right"
+}
+
+enum DockDisplayMode: String {
+    case always = "always"
+    case autohide = "autohide"
+}
+
 // MARK: - Main Container View Controller
 class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, QRScannerDelegate, WKScriptMessageHandler {
 
@@ -146,7 +158,15 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     // Container for WKWebViews
     private let containerView = UIView()
 
-    // Floating Capsule Dock (Build 13 layout with smooth rounded corners & zero square shadow)
+    // Floating Capsule Dock (Customizable: Bottom / Left / Right, Always / Auto-Hide)
+    private var dockPosition: DockPosition = .bottom
+    private var dockDisplayMode: DockDisplayMode = .always
+    private var dockPositionConstraints: [NSLayoutConstraint] = []
+    private var dockInternalConstraints: [NSLayoutConstraint] = []
+    private var miniDockConstraints: [NSLayoutConstraint] = []
+    private var dockAutoHideTimer: Timer?
+    private var isDockMinimized = false
+
     private let dockContainerView = UIView()
     private let dockEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
     private let dockScrollView = UIScrollView()
@@ -159,6 +179,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private let settingsButton = UIButton(type: .system)
     private let fullscreenButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
+
+    // Mini Expand Handle (for Auto-Hide mode)
+    private let miniDockTabButton = UIButton(type: .system)
+    private let miniDockEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
 
     // Completion Toast Banner
     private let toastBannerView = UIView()
@@ -187,6 +211,15 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             currentZoom = CGFloat(savedZoom)
         }
 
+        if let posStr = UserDefaults.standard.string(forKey: "ag_dock_position"),
+           let pos = DockPosition(rawValue: posStr) {
+            dockPosition = pos
+        }
+        if let modeStr = UserDefaults.standard.string(forKey: "ag_dock_display_mode"),
+           let mode = DockDisplayMode(rawValue: modeStr) {
+            dockDisplayMode = mode
+        }
+
         setupLayout()
         updateDockTheme()
         loadWorkspaces()
@@ -201,6 +234,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 self?.updateDockDownloadBadge(activeCount: count)
             }
         }
+
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -210,6 +247,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             dockContainerView.layer.shadowPath = UIBezierPath(
                 roundedRect: dockContainerView.bounds,
                 cornerRadius: 24
+            ).cgPath
+        }
+        if miniDockTabButton.bounds.width > 0 && miniDockTabButton.bounds.height > 0 {
+            miniDockTabButton.layer.shadowPath = UIBezierPath(
+                roundedRect: miniDockTabButton.bounds,
+                cornerRadius: min(miniDockTabButton.bounds.width, miniDockTabButton.bounds.height) / 2
             ).cgPath
         }
     }
@@ -245,6 +288,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         ipaButton.tintColor = tintColor.withAlphaComponent(0.85)
         settingsButton.tintColor = tintColor.withAlphaComponent(0.85)
         fullscreenButton.tintColor = tintColor.withAlphaComponent(0.85)
+
+        updateMiniDockAppearance()
     }
 
     // MARK: - Setup UI Elements
@@ -279,6 +324,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         // 4. Scrollable Project Tabs
         dockScrollView.translatesAutoresizingMaskIntoConstraints = false
         dockScrollView.showsHorizontalScrollIndicator = false
+        dockScrollView.showsVerticalScrollIndicator = false
         dockContentView.addSubview(dockScrollView)
 
         dockStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -362,7 +408,30 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         toastMessageLabel.textColor = UIColor.white.withAlphaComponent(0.85)
         toastBannerView.addSubview(toastMessageLabel)
 
-        // Constraints - Build 13 layout
+        // 8. Mini Dock Expand Pill (Shown when dock is minimized in Auto-Hide mode)
+        miniDockTabButton.translatesAutoresizingMaskIntoConstraints = false
+        miniDockTabButton.backgroundColor = .clear
+        miniDockTabButton.layer.cornerRadius = 9
+        miniDockTabButton.layer.cornerCurve = .continuous
+        miniDockTabButton.clipsToBounds = false
+        miniDockTabButton.layer.shadowColor = UIColor.black.cgColor
+        miniDockTabButton.layer.shadowOpacity = 0.25
+        miniDockTabButton.layer.shadowRadius = 4
+        miniDockTabButton.layer.shadowOffset = CGSize(width: 0, height: 1)
+        miniDockTabButton.alpha = 0
+        miniDockTabButton.isHidden = true
+        miniDockTabButton.addTarget(self, action: #selector(handleMiniDockTapped), for: .touchUpInside)
+        view.addSubview(miniDockTabButton)
+
+        miniDockEffectView.translatesAutoresizingMaskIntoConstraints = false
+        miniDockEffectView.layer.cornerRadius = 9
+        miniDockEffectView.layer.cornerCurve = .continuous
+        miniDockEffectView.clipsToBounds = true
+        miniDockEffectView.layer.borderWidth = 0.5
+        miniDockEffectView.isUserInteractionEnabled = false
+        miniDockTabButton.addSubview(miniDockEffectView)
+
+        // Static Layout Constraints
         NSLayoutConstraint.activate([
             // Container fills screen starting below status bar
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -370,36 +439,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Floating dock pinned safely above home indicator (Build 13)
-            dockContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            dockContainerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
-            dockContainerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
-            dockContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            dockContainerView.heightAnchor.constraint(equalToConstant: 48),
-
             // Dock effect view fills dock container
             dockEffectView.topAnchor.constraint(equalTo: dockContainerView.topAnchor),
             dockEffectView.bottomAnchor.constraint(equalTo: dockContainerView.bottomAnchor),
             dockEffectView.leadingAnchor.constraint(equalTo: dockContainerView.leadingAnchor),
             dockEffectView.trailingAnchor.constraint(equalTo: dockContainerView.trailingAnchor),
 
-            // Dock scroll view
-            dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 8),
-            dockScrollView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -8),
-            dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor),
-            dockScrollView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
-
-            // Dock stack inside scroll view
-            dockStackView.leadingAnchor.constraint(equalTo: dockScrollView.leadingAnchor),
-            dockStackView.trailingAnchor.constraint(equalTo: dockScrollView.trailingAnchor),
-            dockStackView.topAnchor.constraint(equalTo: dockScrollView.topAnchor),
-            dockStackView.bottomAnchor.constraint(equalTo: dockScrollView.bottomAnchor),
-            dockStackView.heightAnchor.constraint(equalTo: dockScrollView.heightAnchor),
-
-            // Action stack
-            actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -8),
-            actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor),
-
+            // Action button sizes
             backButton.widthAnchor.constraint(equalToConstant: 30),
             backButton.heightAnchor.constraint(equalToConstant: 30),
             addButton.widthAnchor.constraint(equalToConstant: 30),
@@ -437,8 +483,290 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
             toastMessageLabel.topAnchor.constraint(equalTo: toastTitleLabel.bottomAnchor, constant: 2),
             toastMessageLabel.leadingAnchor.constraint(equalTo: toastIconView.trailingAnchor, constant: 10),
-            toastMessageLabel.trailingAnchor.constraint(equalTo: toastBannerView.trailingAnchor, constant: -14)
+            toastMessageLabel.trailingAnchor.constraint(equalTo: toastBannerView.trailingAnchor, constant: -14),
+
+            // Mini dock effect view fills mini dock tab button
+            miniDockEffectView.topAnchor.constraint(equalTo: miniDockTabButton.topAnchor),
+            miniDockEffectView.bottomAnchor.constraint(equalTo: miniDockTabButton.bottomAnchor),
+            miniDockEffectView.leadingAnchor.constraint(equalTo: miniDockTabButton.leadingAnchor),
+            miniDockEffectView.trailingAnchor.constraint(equalTo: miniDockTabButton.trailingAnchor)
         ])
+
+        // Apply dynamic layout based on dockPosition (Bottom / Left / Right)
+        applyDockLayout(for: dockPosition, animated: false)
+    }
+
+    // MARK: - Dynamic Dock Positioning (Bottom / Left / Right)
+    private func applyDockLayout(for position: DockPosition, animated: Bool = false) {
+        NSLayoutConstraint.deactivate(dockPositionConstraints)
+        NSLayoutConstraint.deactivate(dockInternalConstraints)
+        NSLayoutConstraint.deactivate(miniDockConstraints)
+        dockPositionConstraints.removeAll()
+        dockInternalConstraints.removeAll()
+        miniDockConstraints.removeAll()
+
+        let dockContentView = dockEffectView.contentView
+
+        switch position {
+        case .bottom:
+            dockStackView.axis = .horizontal
+            dockStackView.alignment = .center
+            actionStackView.axis = .horizontal
+            actionStackView.alignment = .center
+
+            dockPositionConstraints = [
+                dockContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                dockContainerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
+                dockContainerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
+                dockContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+                dockContainerView.heightAnchor.constraint(equalToConstant: 48)
+            ]
+
+            dockInternalConstraints = [
+                dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor, constant: 8),
+                dockScrollView.trailingAnchor.constraint(equalTo: actionStackView.leadingAnchor, constant: -8),
+                dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor),
+                dockScrollView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor),
+
+                dockStackView.leadingAnchor.constraint(equalTo: dockScrollView.leadingAnchor),
+                dockStackView.trailingAnchor.constraint(equalTo: dockScrollView.trailingAnchor),
+                dockStackView.topAnchor.constraint(equalTo: dockScrollView.topAnchor),
+                dockStackView.bottomAnchor.constraint(equalTo: dockScrollView.bottomAnchor),
+                dockStackView.heightAnchor.constraint(equalTo: dockScrollView.heightAnchor),
+
+                actionStackView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor, constant: -8),
+                actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor)
+            ]
+
+            miniDockConstraints = [
+                miniDockTabButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                miniDockTabButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -2),
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 64),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 18)
+            ]
+
+        case .left:
+            dockStackView.axis = .vertical
+            dockStackView.alignment = .center
+            actionStackView.axis = .vertical
+            actionStackView.alignment = .center
+
+            dockPositionConstraints = [
+                dockContainerView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 6),
+                dockContainerView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                dockContainerView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+                dockContainerView.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+                dockContainerView.widthAnchor.constraint(equalToConstant: 48)
+            ]
+
+            dockInternalConstraints = [
+                dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor, constant: 8),
+                dockScrollView.bottomAnchor.constraint(equalTo: actionStackView.topAnchor, constant: -8),
+                dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor),
+                dockScrollView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor),
+
+                dockStackView.leadingAnchor.constraint(equalTo: dockScrollView.leadingAnchor),
+                dockStackView.trailingAnchor.constraint(equalTo: dockScrollView.trailingAnchor),
+                dockStackView.topAnchor.constraint(equalTo: dockScrollView.topAnchor),
+                dockStackView.bottomAnchor.constraint(equalTo: dockScrollView.bottomAnchor),
+                dockStackView.widthAnchor.constraint(equalTo: dockScrollView.widthAnchor),
+
+                actionStackView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor, constant: -8),
+                actionStackView.centerXAnchor.constraint(equalTo: dockContentView.centerXAnchor)
+            ]
+
+            miniDockConstraints = [
+                miniDockTabButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 2),
+                miniDockTabButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 18),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 64)
+            ]
+
+        case .right:
+            dockStackView.axis = .vertical
+            dockStackView.alignment = .center
+            actionStackView.axis = .vertical
+            actionStackView.alignment = .center
+
+            dockPositionConstraints = [
+                dockContainerView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -6),
+                dockContainerView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                dockContainerView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+                dockContainerView.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+                dockContainerView.widthAnchor.constraint(equalToConstant: 48)
+            ]
+
+            dockInternalConstraints = [
+                dockScrollView.topAnchor.constraint(equalTo: dockContentView.topAnchor, constant: 8),
+                dockScrollView.bottomAnchor.constraint(equalTo: actionStackView.topAnchor, constant: -8),
+                dockScrollView.leadingAnchor.constraint(equalTo: dockContentView.leadingAnchor),
+                dockScrollView.trailingAnchor.constraint(equalTo: dockContentView.trailingAnchor),
+
+                dockStackView.leadingAnchor.constraint(equalTo: dockScrollView.leadingAnchor),
+                dockStackView.trailingAnchor.constraint(equalTo: dockScrollView.trailingAnchor),
+                dockStackView.topAnchor.constraint(equalTo: dockScrollView.topAnchor),
+                dockStackView.bottomAnchor.constraint(equalTo: dockScrollView.bottomAnchor),
+                dockStackView.widthAnchor.constraint(equalTo: dockScrollView.widthAnchor),
+
+                actionStackView.bottomAnchor.constraint(equalTo: dockContentView.bottomAnchor, constant: -8),
+                actionStackView.centerXAnchor.constraint(equalTo: dockContentView.centerXAnchor)
+            ]
+
+            miniDockConstraints = [
+                miniDockTabButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -2),
+                miniDockTabButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 18),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 64)
+            ]
+        }
+
+        NSLayoutConstraint.activate(dockPositionConstraints)
+        NSLayoutConstraint.activate(dockInternalConstraints)
+        NSLayoutConstraint.activate(miniDockConstraints)
+
+        updateMiniDockAppearance()
+
+        if animated {
+            UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.5, options: [], animations: {
+                self.view.layoutIfNeeded()
+            }, completion: nil)
+        } else {
+            view.layoutIfNeeded()
+        }
+    }
+
+    private func updateMiniDockAppearance() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        miniDockEffectView.effect = UIBlurEffect(style: isDark ? .systemUltraThinMaterialDark : .systemThinMaterialLight)
+        let bg = isDark ? UIColor(red: 0.12, green: 0.12, blue: 0.16, alpha: 0.85) : UIColor(red: 0.95, green: 0.95, blue: 0.98, alpha: 0.9)
+        miniDockEffectView.contentView.backgroundColor = bg
+        miniDockEffectView.layer.borderColor = (isDark ? UIColor(white: 1.0, alpha: 0.25) : UIColor(white: 0.0, alpha: 0.15)).cgColor
+
+        let iconName: String
+        switch dockPosition {
+        case .bottom:
+            iconName = "chevron.compact.up"
+        case .left:
+            iconName = "chevron.right"
+        case .right:
+            iconName = "chevron.left"
+        }
+        let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)
+        miniDockTabButton.setImage(UIImage(systemName: iconName, withConfiguration: config), for: .normal)
+        miniDockTabButton.tintColor = isDark ? .white : .label
+    }
+
+    // MARK: - Auto-Hide & Minimize Controls
+    private func scheduleDockAutoHide() {
+        dockAutoHideTimer?.invalidate()
+        guard dockDisplayMode == .autohide, !isFullscreen, !isDockMinimized else { return }
+        dockAutoHideTimer = Timer.scheduledTimer(withTimeInterval: 4.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.minimizeDock(animated: true)
+            }
+        }
+    }
+
+    private func minimizeDock(animated: Bool = true) {
+        guard !isDockMinimized, !isFullscreen else { return }
+        isDockMinimized = true
+        dockAutoHideTimer?.invalidate()
+
+        let translation: CGAffineTransform
+        switch dockPosition {
+        case .bottom:
+            translation = CGAffineTransform(translationX: 0, y: 70)
+        case .left:
+            translation = CGAffineTransform(translationX: -70, y: 0)
+        case .right:
+            translation = CGAffineTransform(translationX: 70, y: 0)
+        }
+
+        self.miniDockTabButton.isHidden = false
+        let animations = {
+            self.dockContainerView.transform = translation
+            self.dockContainerView.alpha = 0
+            self.miniDockTabButton.alpha = 1
+            self.updateWebViewInsets()
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.32, delay: 0, options: [.curveEaseOut], animations: animations, completion: nil)
+        } else {
+            animations()
+        }
+    }
+
+    private func expandDock(animated: Bool = true) {
+        guard isDockMinimized else { return }
+        isDockMinimized = false
+
+        let animations = {
+            self.dockContainerView.transform = .identity
+            self.dockContainerView.alpha = 1
+            self.miniDockTabButton.alpha = 0
+            self.updateWebViewInsets()
+        }
+
+        let completion: (Bool) -> Void = { _ in
+            self.miniDockTabButton.isHidden = true
+            if self.dockDisplayMode == .autohide {
+                self.scheduleDockAutoHide()
+            }
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.5, options: [], animations: animations, completion: completion)
+        } else {
+            animations()
+            completion(true)
+        }
+    }
+
+    @objc private func handleMiniDockTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        expandDock(animated: true)
+    }
+
+    private func updateWebViewInsets() {
+        let bottomInset: CGFloat = (dockPosition == .bottom && !isFullscreen && !isDockMinimized) ? 64 : 12
+        let leftInset: CGFloat = (dockPosition == .left && !isFullscreen && !isDockMinimized) ? 58 : 0
+        let rightInset: CGFloat = (dockPosition == .right && !isFullscreen && !isDockMinimized) ? 58 : 0
+
+        for (_, wv) in webViews {
+            wv.scrollView.contentInset = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
+            wv.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
+        }
+    }
+
+    func setDockPosition(_ newPosition: DockPosition, animated: Bool = true) {
+        guard newPosition != dockPosition else { return }
+        dockPosition = newPosition
+        UserDefaults.standard.set(newPosition.rawValue, forKey: "ag_dock_position")
+
+        dockContainerView.transform = .identity
+        isDockMinimized = false
+
+        applyDockLayout(for: newPosition, animated: animated)
+        renderDockTabs()
+        updateWebViewInsets()
+        updateMiniDockAppearance()
+
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
+    }
+
+    func setDockDisplayMode(_ newMode: DockDisplayMode) {
+        dockDisplayMode = newMode
+        UserDefaults.standard.set(newMode.rawValue, forKey: "ag_dock_display_mode")
+
+        if newMode == .always {
+            expandDock(animated: true)
+            dockAutoHideTimer?.invalidate()
+        } else {
+            scheduleDockAutoHide()
+        }
     }
 
     private func setupActionButton(_ button: UIButton, iconName: String, action: Selector) {
@@ -570,9 +898,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        // Add bottom inset so page content can scroll comfortably above the dock
-        webView.scrollView.contentInset.bottom = 60
-        webView.scrollView.scrollIndicatorInsets.bottom = 60
+        let bottomInset: CGFloat = (dockPosition == .bottom && !isFullscreen && !isDockMinimized) ? 64 : 12
+        let leftInset: CGFloat = (dockPosition == .left && !isFullscreen && !isDockMinimized) ? 58 : 0
+        let rightInset: CGFloat = (dockPosition == .right && !isFullscreen && !isDockMinimized) ? 58 : 0
+        webView.scrollView.contentInset = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
+        webView.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
         webView.backgroundColor = .systemBackground
 
         containerView.addSubview(webView)
@@ -600,9 +930,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
         updateActiveVisibility()
         renderDockTabs()
+        updateWebViewInsets()
 
         dispatchWakeupEventsToActiveWebView()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
     }
 
     private func updateActiveVisibility() {
@@ -619,6 +954,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         }
 
         let isDark = traitCollection.userInterfaceStyle == .dark
+        let isVertical = (dockPosition == .left || dockPosition == .right)
 
         for ws in workspaces {
             let isActive = (ws.id == activeWorkspaceId)
@@ -627,19 +963,36 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             button.translatesAutoresizingMaskIntoConstraints = false
             button.tag = workspaces.firstIndex(where: { $0.id == ws.id }) ?? 0
 
-            let prefix = isActive ? "● " : ""
-            button.setTitle("\(prefix)\(ws.name)", for: .normal)
-            button.setTitleColor(isActive ? .white : (isDark ? UIColor(white: 0.90, alpha: 1.0) : UIColor.label), for: .normal)
-            button.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: isActive ? .bold : .medium)
-            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
+            if isVertical {
+                // In vertical mode: Show 34x34pt squircle badge with project initial letter
+                let rawName = ws.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let initial = String(rawName.prefix(1)).uppercased()
+                button.setTitle(initial.isEmpty ? "A" : initial, for: .normal)
+                button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .bold)
+                button.contentEdgeInsets = .zero
+                button.layer.cornerRadius = 12
+                button.layer.cornerCurve = .continuous
+                button.clipsToBounds = true
 
+                NSLayoutConstraint.activate([
+                    button.widthAnchor.constraint(equalToConstant: 34),
+                    button.heightAnchor.constraint(equalToConstant: 34)
+                ])
+            } else {
+                // In horizontal bottom mode: Show full project pill
+                let prefix = isActive ? "● " : ""
+                button.setTitle("\(prefix)\(ws.name)", for: .normal)
+                button.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: isActive ? .bold : .medium)
+                button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
+                button.layer.cornerRadius = 17
+                button.layer.cornerCurve = .continuous
+                button.clipsToBounds = true
+            }
+
+            button.setTitleColor(isActive ? .white : (isDark ? UIColor(white: 0.90, alpha: 1.0) : UIColor.label), for: .normal)
             button.backgroundColor = isActive
                 ? UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
                 : (isDark ? UIColor(white: 1.0, alpha: 0.12) : UIColor(white: 0.0, alpha: 0.06))
-
-            button.layer.cornerRadius = 17
-            button.layer.cornerCurve = .continuous
-            button.clipsToBounds = true
 
             if isActive {
                 button.layer.shadowColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 0.55).cgColor
@@ -663,15 +1016,30 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         isFullscreen.toggle()
         UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
             self.dockContainerView.alpha = self.isFullscreen ? 0 : 1
-            self.dockContainerView.transform = self.isFullscreen ? CGAffineTransform(translationX: 0, y: 30) : .identity
+            let translation: CGAffineTransform
+            switch self.dockPosition {
+            case .bottom: translation = CGAffineTransform(translationX: 0, y: 70)
+            case .left: translation = CGAffineTransform(translationX: -70, y: 0)
+            case .right: translation = CGAffineTransform(translationX: 70, y: 0)
+            }
+            self.dockContainerView.transform = self.isFullscreen ? translation : .identity
             self.restoreButton.alpha = self.isFullscreen ? 1 : 0
+            if self.isFullscreen {
+                self.miniDockTabButton.alpha = 0
+            } else if self.isDockMinimized {
+                self.miniDockTabButton.alpha = 1
+            }
         }
+        updateWebViewInsets()
     }
 
     // MARK: - Actions
     // MARK: - Navigation History (Back Button)
     @objc private func handleGoBack() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
         if let activeWv = webViews[activeWorkspaceId] {
             if activeWv.canGoBack {
                 activeWv.goBack()
@@ -932,9 +1300,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     // MARK: - Zoom, Font Size & Modern In-App Project Menu
     @objc private func handleSettingsTapped() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
         let menuVC = ModernSettingsMenuViewController()
         menuVC.delegate = self
         menuVC.currentZoom = currentZoom
+        menuVC.currentDockPosition = dockPosition
+        menuVC.currentDockDisplayMode = dockDisplayMode
         menuVC.activeWorkspace = workspaces.first(where: { $0.id == activeWorkspaceId })
         menuVC.canCloseWorkspace = workspaces.count > 1
 
@@ -1118,6 +1491,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     DispatchQueue.main.async {
                         self.handleSettingsTapped()
                     }
+                } else if action == "setDockPosition", let posStr = body["position"] as? String, let pos = DockPosition(rawValue: posStr) {
+                    DispatchQueue.main.async {
+                        self.setDockPosition(pos, animated: true)
+                    }
+                } else if action == "setDockDisplayMode", let modeStr = body["mode"] as? String, let mode = DockDisplayMode(rawValue: modeStr) {
+                    DispatchQueue.main.async {
+                        self.setDockDisplayMode(mode)
+                    }
                 }
             }
         }
@@ -1125,21 +1506,41 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
     private func isDownloadableUrl(_ url: URL?) -> (isDownload: Bool, suggestedFilename: String) {
         guard let url = url else { return (false, "") }
-        let str = url.absoluteString.lowercased()
+        let fullStr = (url.absoluteString.removingPercentEncoding ?? url.absoluteString).lowercased()
+        let rawStr = url.absoluteString.lowercased()
+        let pathStr = (url.path.removingPercentEncoding ?? url.path).lowercased()
 
-        let extensions = [".ipa", ".zip", ".deb", ".tar", ".gz", ".tgz", ".7z", ".rar", ".dmg", ".pkg", ".pdf", ".apk", ".dylib", ".mobileconfig"]
+        let extensions = [".ipa", ".zip", ".deb", ".tar", ".gz", ".tgz", ".7z", ".rar", ".dmg", ".pkg", ".pdf", ".apk", ".dylib", ".mobileconfig", ".bin", ".iso"]
+
+        // 1. Path extension check
         for ext in extensions {
-            if str.hasSuffix(ext) || str.contains("\(ext)?") || str.contains("\(ext)&") {
+            if pathStr.hasSuffix(ext) || pathStr.contains("\(ext)/") || pathStr.contains("\(ext).") {
                 let name = url.lastPathComponent.isEmpty ? "file\(ext)" : url.lastPathComponent
                 return (true, name)
             }
         }
 
-        if str.contains("/releases/download/") {
+        // 2. Query parameter or full string contains extension
+        for ext in extensions {
+            if fullStr.contains(ext) || rawStr.contains(ext) {
+                if let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
+                    if let filenameItem = items.first(where: { $0.name.lowercased().contains("filename") || $0.name.lowercased().contains("file") })?.value,
+                       !filenameItem.isEmpty {
+                        return (true, filenameItem)
+                    }
+                }
+                let name = url.lastPathComponent.isEmpty ? "file\(ext)" : url.lastPathComponent
+                return (true, name)
+            }
+        }
+
+        // 3. GitHub release download URLs
+        if fullStr.contains("/releases/download/") || rawStr.contains("/releases/download/") {
             let name = url.lastPathComponent.isEmpty ? "release_file" : url.lastPathComponent
             return (true, name)
         }
 
+        // 4. Custom antigravity scheme
         if url.scheme == "antigravity" && url.host == "ipa" {
             return (true, "AntigravityMobile.ipa")
         }
@@ -1201,11 +1602,15 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        if let url = navigationResponse.response.url {
+        let resp = navigationResponse.response
+        let url = resp.url
+
+        // 1. Check if URL matches downloadable pattern
+        if let url = url {
             let check = isDownloadableUrl(url)
             if check.isDownload {
                 decisionHandler(.cancel)
-                let name = navigationResponse.response.suggestedFilename ?? check.suggestedFilename
+                let name = resp.suggestedFilename ?? check.suggestedFilename
                 DispatchQueue.main.async {
                     self.promptSafariDownload(url: url, suggestedFilename: name)
                 }
@@ -1213,21 +1618,66 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             }
         }
 
-        let mime = navigationResponse.response.mimeType?.lowercased() ?? ""
-        let filename = navigationResponse.response.suggestedFilename ?? "file"
-        if mime == "application/x-itunes-ipa" || mime == "application/octet-stream" || mime == "application/zip" || mime == "application/x-debian-package" {
-            if filename.lowercased().hasSuffix(".ipa") || filename.lowercased().hasSuffix(".zip") || filename.lowercased().hasSuffix(".deb") || mime == "application/x-itunes-ipa" {
-                decisionHandler(.cancel)
-                if let url = navigationResponse.response.url {
-                    DispatchQueue.main.async {
-                        self.promptSafariDownload(url: url, suggestedFilename: filename)
+        // 2. Check Content-Disposition header
+        var contentDispositionFilename: String?
+        if let httpResponse = resp as? HTTPURLResponse {
+            if let disposition = httpResponse.allHeaderFields.first(where: { ($0.key as? String)?.lowercased() == "content-disposition" })?.value as? String {
+                let lowerDisp = disposition.lowercased()
+                if lowerDisp.contains("attachment") || lowerDisp.contains(".ipa") || lowerDisp.contains(".zip") || lowerDisp.contains(".deb") {
+                    if let fnRange = disposition.range(of: "filename=", options: .caseInsensitive) {
+                        var fn = String(disposition[fnRange.upperBound...])
+                        if let semiIdx = fn.firstIndex(of: ";") {
+                            fn = String(fn[..<semiIdx])
+                        }
+                        fn = fn.trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+                        if !fn.isEmpty {
+                            contentDispositionFilename = fn.removingPercentEncoding ?? fn
+                        }
                     }
+                    decisionHandler(.cancel)
+                    if let downloadUrl = url {
+                        let finalName = contentDispositionFilename ?? resp.suggestedFilename ?? "download_file"
+                        DispatchQueue.main.async {
+                            self.promptSafariDownload(url: downloadUrl, suggestedFilename: finalName)
+                        }
+                    }
+                    return
                 }
-                return
             }
         }
 
-        if let httpResponse = navigationResponse.response as? HTTPURLResponse {
+        // 3. Check MIME type for binary / archive / octet-stream - NEVER render as text!
+        let mime = (resp.mimeType ?? "").lowercased()
+        let binaryMimes = [
+            "application/octet-stream",
+            "binary/octet-stream",
+            "application/x-itunes-ipa",
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/x-zip",
+            "application/x-debian-package",
+            "application/vnd.android.package-archive",
+            "application/x-apple-diskimage",
+            "application/x-tar",
+            "application/x-bzip",
+            "application/x-bzip2",
+            "application/x-7z-compressed",
+            "application/x-compressed",
+            "application/download"
+        ]
+
+        if binaryMimes.contains(mime) || (!navigationResponse.canShowMIMEType && mime != "application/pdf") {
+            decisionHandler(.cancel)
+            if let downloadUrl = url {
+                let name = contentDispositionFilename ?? resp.suggestedFilename ?? "download_file"
+                DispatchQueue.main.async {
+                    self.promptSafariDownload(url: downloadUrl, suggestedFilename: name)
+                }
+            }
+            return
+        }
+
+        if let httpResponse = resp as? HTTPURLResponse {
             if httpResponse.statusCode == 403 {
                 DispatchQueue.main.async {
                     self.showAccessDeniedBanner()
@@ -1238,6 +1688,22 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Detect if webView accidentally displayed raw zip/IPA binary content (starting with "PK")
+        webView.evaluateJavaScript("document.body ? document.body.innerText.substring(0, 10) : ''") { [weak self, weak webView] result, _ in
+            guard let self = self, let wv = webView else { return }
+            if let prefix = result as? String, prefix.hasPrefix("PK") {
+                if let badUrl = wv.url {
+                    self.promptSafariDownload(url: badUrl, suggestedFilename: badUrl.lastPathComponent)
+                }
+                if wv.canGoBack {
+                    wv.goBack()
+                } else if let ws = self.workspaces.first(where: { self.webViews[$0.id] == wv }),
+                          let safeUrl = URL(string: ws.url) {
+                    wv.load(URLRequest(url: safeUrl))
+                }
+            }
+        }
+
         // Safe navigation finish: apply zoom without destroying Google DOM
         if currentZoom != 1.0 {
             applyZoom(currentZoom, to: webView)
@@ -2345,6 +2811,8 @@ protocol ModernSettingsMenuDelegate: AnyObject {
     func menuDidRequestUpdateUrl(for ws: RemoteWorkspace)
     func menuDidRequestCloseWorkspace(_ ws: RemoteWorkspace)
     func menuDidRequestClearCache()
+    func menuDidChangeDockPosition(_ position: DockPosition)
+    func menuDidChangeDockDisplayMode(_ mode: DockDisplayMode)
 }
 
 // MARK: - MainViewController Extension for Modern Settings Menu
@@ -2387,12 +2855,20 @@ extension MainViewController: ModernSettingsMenuDelegate {
     func menuDidRequestClearCache() {
         clearCacheAndReload()
     }
+    func menuDidChangeDockPosition(_ position: DockPosition) {
+        setDockPosition(position, animated: true)
+    }
+    func menuDidChangeDockDisplayMode(_ mode: DockDisplayMode) {
+        setDockDisplayMode(mode)
+    }
 }
 
 // MARK: - Modern In-App Settings & Project Menu Sheet
 class ModernSettingsMenuViewController: UIViewController {
     weak var delegate: ModernSettingsMenuDelegate?
     var currentZoom: CGFloat = 1.0
+    var currentDockPosition: DockPosition = .bottom
+    var currentDockDisplayMode: DockDisplayMode = .always
     var activeWorkspace: RemoteWorkspace?
     var canCloseWorkspace: Bool = false
 
@@ -2400,6 +2876,8 @@ class ModernSettingsMenuViewController: UIViewController {
     private let contentStack = UIStackView()
     private let zoomValueLabel = UILabel()
     private let notifSwitch = UISwitch()
+    private var positionSegment: UISegmentedControl!
+    private var displayModeSegment: UISegmentedControl!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -2440,7 +2918,7 @@ class ModernSettingsMenuViewController: UIViewController {
         titleStack.addArrangedSubview(titleLabel)
 
         let subtitleLabel = UILabel()
-        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 26)"
+        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 28)"
         subtitleLabel.font = .systemFont(ofSize: 12, weight: .medium)
         subtitleLabel.textColor = .secondaryLabel
         titleStack.addArrangedSubview(subtitleLabel)
@@ -2501,6 +2979,7 @@ class ModernSettingsMenuViewController: UIViewController {
         ])
 
         buildQuickActions()
+        buildDockSection()
         buildZoomSection()
         buildNotificationSection()
         buildWorkspaceSection()
@@ -2639,7 +3118,154 @@ class ModernSettingsMenuViewController: UIViewController {
         }
     }
 
-    // MARK: - Section 2: Zoom Stepper Control
+    // MARK: - Section 2: Dock Position & Display Mode Customization
+    private func buildDockSection() {
+        let titleLabel = createSectionTitle("VỊ TRÍ & HIỂN THỊ DOCK")
+        contentStack.addArrangedSubview(titleLabel)
+
+        let card = createCardView()
+        let cardStack = UIStackView()
+        cardStack.axis = .vertical
+        cardStack.spacing = 0
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(cardStack)
+
+        // Row 1: Dock Position Segment
+        let posRow = UIView()
+        let posStack = UIStackView()
+        posStack.axis = .vertical
+        posStack.spacing = 10
+        posStack.translatesAutoresizingMaskIntoConstraints = false
+        posRow.addSubview(posStack)
+
+        let posHeaderStack = UIStackView()
+        posHeaderStack.axis = .horizontal
+        posHeaderStack.spacing = 12
+        posHeaderStack.alignment = .center
+
+        let posBadge = createIconBadge(iconName: "sidebar.leading", bgColor: UIColor.systemBlue.withAlphaComponent(0.12), tintColor: .systemBlue)
+        posHeaderStack.addArrangedSubview(posBadge)
+
+        let posTextStack = UIStackView()
+        posTextStack.axis = .vertical
+        posTextStack.spacing = 2
+
+        let posTitle = UILabel()
+        posTitle.text = "Vị Trí Thanh Dock"
+        posTitle.font = .systemFont(ofSize: 14, weight: .bold)
+        posTitle.textColor = .label
+        posTextStack.addArrangedSubview(posTitle)
+
+        let posSub = UILabel()
+        posSub.text = "Đáy màn hình hoặc cạnh dọc bên trái / phải"
+        posSub.font = .systemFont(ofSize: 11, weight: .regular)
+        posSub.textColor = .secondaryLabel
+        posTextStack.addArrangedSubview(posSub)
+
+        posHeaderStack.addArrangedSubview(posTextStack)
+        posStack.addArrangedSubview(posHeaderStack)
+
+        positionSegment = UISegmentedControl(items: ["⬇️ Đáy", "⬅️ Cạnh Trái", "➡️ Cạnh Phải"])
+        switch currentDockPosition {
+        case .bottom: positionSegment.selectedSegmentIndex = 0
+        case .left: positionSegment.selectedSegmentIndex = 1
+        case .right: positionSegment.selectedSegmentIndex = 2
+        }
+        positionSegment.addTarget(self, action: #selector(handleDockPositionChanged(_:)), for: .valueChanged)
+        posStack.addArrangedSubview(positionSegment)
+
+        NSLayoutConstraint.activate([
+            posStack.topAnchor.constraint(equalTo: posRow.topAnchor, constant: 12),
+            posStack.bottomAnchor.constraint(equalTo: posRow.bottomAnchor, constant: -12),
+            posStack.leadingAnchor.constraint(equalTo: posRow.leadingAnchor, constant: 14),
+            posStack.trailingAnchor.constraint(equalTo: posRow.trailingAnchor, constant: -14)
+        ])
+        cardStack.addArrangedSubview(posRow)
+
+        // Divider
+        cardStack.addArrangedSubview(createDivider())
+
+        // Row 2: Dock Display Mode Segment
+        let modeRow = UIView()
+        let modeStack = UIStackView()
+        modeStack.axis = .vertical
+        modeStack.spacing = 10
+        modeStack.translatesAutoresizingMaskIntoConstraints = false
+        modeRow.addSubview(modeStack)
+
+        let modeHeaderStack = UIStackView()
+        modeHeaderStack.axis = .horizontal
+        modeHeaderStack.spacing = 12
+        modeHeaderStack.alignment = .center
+
+        let modeBadge = createIconBadge(iconName: "eye.fill", bgColor: UIColor.systemIndigo.withAlphaComponent(0.12), tintColor: .systemIndigo)
+        modeHeaderStack.addArrangedSubview(modeBadge)
+
+        let modeTextStack = UIStackView()
+        modeTextStack.axis = .vertical
+        modeTextStack.spacing = 2
+
+        let modeTitle = UILabel()
+        modeTitle.text = "Chế Độ Hiển Thị Dock"
+        modeTitle.font = .systemFont(ofSize: 14, weight: .bold)
+        modeTitle.textColor = .label
+        modeTextStack.addArrangedSubview(modeTitle)
+
+        let modeSub = UILabel()
+        modeSub.text = "Luôn hiện trên màn hình hoặc tự động ẩn khi không dùng"
+        modeSub.font = .systemFont(ofSize: 11, weight: .regular)
+        modeSub.textColor = .secondaryLabel
+        modeTextStack.addArrangedSubview(modeSub)
+
+        modeHeaderStack.addArrangedSubview(modeTextStack)
+        modeStack.addArrangedSubview(modeHeaderStack)
+
+        displayModeSegment = UISegmentedControl(items: ["👁️ Luôn Hiện", "⏱️ Tự Động Ẩn"])
+        switch currentDockDisplayMode {
+        case .always: displayModeSegment.selectedSegmentIndex = 0
+        case .autohide: displayModeSegment.selectedSegmentIndex = 1
+        }
+        displayModeSegment.addTarget(self, action: #selector(handleDockDisplayModeChanged(_:)), for: .valueChanged)
+        modeStack.addArrangedSubview(displayModeSegment)
+
+        NSLayoutConstraint.activate([
+            modeStack.topAnchor.constraint(equalTo: modeRow.topAnchor, constant: 12),
+            modeStack.bottomAnchor.constraint(equalTo: modeRow.bottomAnchor, constant: -12),
+            modeStack.leadingAnchor.constraint(equalTo: modeRow.leadingAnchor, constant: 14),
+            modeStack.trailingAnchor.constraint(equalTo: modeRow.trailingAnchor, constant: -14)
+        ])
+        cardStack.addArrangedSubview(modeRow)
+
+        NSLayoutConstraint.activate([
+            cardStack.topAnchor.constraint(equalTo: card.topAnchor),
+            cardStack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            cardStack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            cardStack.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+        ])
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    @objc private func handleDockPositionChanged(_ sender: UISegmentedControl) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let newPos: DockPosition
+        switch sender.selectedSegmentIndex {
+        case 1: newPos = .left
+        case 2: newPos = .right
+        default: newPos = .bottom
+        }
+        currentDockPosition = newPos
+        delegate?.menuDidChangeDockPosition(newPos)
+    }
+
+    @objc private func handleDockDisplayModeChanged(_ sender: UISegmentedControl) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let newMode: DockDisplayMode = (sender.selectedSegmentIndex == 1) ? .autohide : .always
+        currentDockDisplayMode = newMode
+        delegate?.menuDidChangeDockDisplayMode(newMode)
+    }
+
+    // MARK: - Section 3: Zoom Stepper Control
     private func buildZoomSection() {
         let card = createCardView()
 
