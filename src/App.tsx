@@ -4,6 +4,7 @@ import { FloatingDock } from './components/FloatingDock';
 import { CameraQRScanner } from './components/CameraQRScanner';
 import { ManageWorkspacesModal } from './components/ManageWorkspacesModal';
 import { SettingsModal } from './components/SettingsModal';
+import { IPAManagerModal } from './components/IPAManagerModal';
 import { RemoteWorkspace } from './types';
 import { workspaceStore } from './services/workspaceStore';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -14,6 +15,7 @@ export const App: React.FC = () => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isIpaManagerOpen, setIsIpaManagerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -105,6 +107,7 @@ export const App: React.FC = () => {
           onOpenScanner={() => setIsScannerOpen(true)}
           onOpenManageWorkspaces={() => setIsManageOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenIpaManager={() => setIsIpaManagerOpen(true)}
           onCloseWorkspace={handleRemoveWorkspace}
           isFullscreen={isFullscreen}
           onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
@@ -140,6 +143,12 @@ export const App: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* IPA Downloader & Sideload Manager Modal */}
+      <IPAManagerModal
+        isOpen={isIpaManagerOpen}
+        onClose={() => setIsIpaManagerOpen(false)}
       />
     </div>
   );

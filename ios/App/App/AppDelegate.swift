@@ -134,6 +134,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private let actionStackView = UIStackView()
     private let addButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
+    private let ipaButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
     private let fullscreenButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
@@ -197,6 +198,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
         addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
         reloadButton.tintColor = tintColor.withAlphaComponent(0.85)
+        ipaButton.tintColor = tintColor.withAlphaComponent(0.85)
         settingsButton.tintColor = tintColor.withAlphaComponent(0.85)
         fullscreenButton.tintColor = tintColor.withAlphaComponent(0.85)
     }
@@ -250,11 +252,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
         setupActionButton(addButton, iconName: "plus", action: #selector(handleAddWorkspace))
         setupActionButton(reloadButton, iconName: "arrow.clockwise", action: #selector(handleReloadActiveTab))
+        setupActionButton(ipaButton, iconName: "arrow.down.circle", action: #selector(handleIpaManagerTapped))
         setupActionButton(settingsButton, iconName: "gearshape", action: #selector(handleSettingsTapped))
         setupActionButton(fullscreenButton, iconName: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullscreen))
 
         actionStackView.addArrangedSubview(addButton)
         actionStackView.addArrangedSubview(reloadButton)
+        actionStackView.addArrangedSubview(ipaButton)
         actionStackView.addArrangedSubview(settingsButton)
         actionStackView.addArrangedSubview(fullscreenButton)
 
@@ -316,6 +320,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             addButton.heightAnchor.constraint(equalToConstant: 30),
             reloadButton.widthAnchor.constraint(equalToConstant: 30),
             reloadButton.heightAnchor.constraint(equalToConstant: 30),
+            ipaButton.widthAnchor.constraint(equalToConstant: 30),
+            ipaButton.heightAnchor.constraint(equalToConstant: 30),
             settingsButton.widthAnchor.constraint(equalToConstant: 30),
             settingsButton.heightAnchor.constraint(equalToConstant: 30),
             fullscreenButton.widthAnchor.constraint(equalToConstant: 30),
@@ -605,6 +611,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             self.handleReloadActiveTab()
         }))
 
+        sheet.addAction(UIAlertAction(title: "📦 Quản lý & Tải bản IPA (Sideload)", style: .default, handler: { _ in
+            self.handleIpaManagerTapped()
+        }))
+
         if workspaces.count > 1, let active = workspaces.first(where: { $0.id == activeWorkspaceId }) {
             sheet.addAction(UIAlertAction(title: "🗑️ Xóa tab này (\(active.name))", style: .destructive, handler: { _ in
                 self.removeWorkspace(active)
@@ -623,6 +633,21 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         }
 
         present(sheet, animated: true)
+    }
+
+    // MARK: - IPA Download & Sideload Manager
+    @objc private func handleIpaManagerTapped() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let ipaVC = IPAManagerViewController()
+        let nav = UINavigationController(rootViewController: ipaVC)
+        if #available(iOS 15.0, *) {
+            if let sheet = nav.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = 24
+            }
+        }
+        present(nav, animated: true)
     }
 
     private func showUpdateUrlDialog(for ws: RemoteWorkspace) {
@@ -971,6 +996,448 @@ class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsD
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
             dismiss(animated: true) {
                 self.delegate?.didScanWorkspace(url: stringValue, customName: nil)
+            }
+        }
+    }
+}
+
+// MARK: - Native IPA Download & Sideload Manager View Controller
+class IPAManagerViewController: UIViewController, URLSessionDownloadDelegate {
+
+    private let releaseApiUrl = "https://api.github.com/repos/nhdien07122012/antigravity-app/releases/tags/latest"
+    private let directIpaUrl = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/download/latest/AntigravityMobile.ipa")!
+
+    private var downloadTask: URLSessionDownloadTask?
+    private lazy var urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        return URLSession(configuration: config, delegate: self, delegateQueue: .main)
+    }()
+
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+
+    // Header Badge
+    private let headerIcon = UIImageView()
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    // Info Card
+    private let infoCard = UIView()
+    private let versionTitleLabel = UILabel()
+    private let currentVersionLabel = UILabel()
+    private let releaseInfoLabel = UILabel()
+
+    // Status & Progress Card
+    private let statusCard = UIView()
+    private let statusLabel = UILabel()
+    private let progressView = UIProgressView(progressViewStyle: .default)
+    private let progressLabel = UILabel()
+
+    // Action Buttons
+    private let downloadButton = UIButton(type: .system)
+    private let shareButton = UIButton(type: .system)
+    private let githubButton = UIButton(type: .system)
+    private let deleteButton = UIButton(type: .system)
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Quản Lý Bản Cài IPA"
+        view.backgroundColor = .systemGroupedBackground
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Đóng",
+            style: .done,
+            target: self,
+            action: #selector(handleClose)
+        )
+
+        setupUI()
+        checkLocalIpa()
+        fetchReleaseInfo()
+    }
+
+    private func getLocalIpaUrl() -> URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("AntigravityMobile.ipa")
+    }
+
+    private func setupUI() {
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        // Header Icon
+        headerIcon.translatesAutoresizingMaskIntoConstraints = false
+        headerIcon.image = UIImage(systemName: "arrow.down.circle.fill")
+        headerIcon.tintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        headerIcon.contentMode = .scaleAspectFit
+        contentView.addSubview(headerIcon)
+
+        // Title
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = "Antigravity Mobile IPA"
+        titleLabel.font = UIFont.systemFont(ofSize: 20, weight: .bold)
+        titleLabel.textColor = .label
+        titleLabel.textAlignment = .center
+        contentView.addSubview(titleLabel)
+
+        // Subtitle
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.text = "Tải bản dựng mới nhất từ GitHub và chia sẻ sang SideStore, TrollStore, AltStore hoặc Tệp để Sideload trực tiếp."
+        subtitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.textAlignment = .center
+        subtitleLabel.numberOfLines = 0
+        contentView.addSubview(subtitleLabel)
+
+        // Info Card
+        setupCardView(infoCard)
+        contentView.addSubview(infoCard)
+
+        versionTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        versionTitleLabel.text = "THÔNG TIN BẢN DỰNG"
+        versionTitleLabel.font = UIFont.systemFont(ofSize: 11, weight: .bold)
+        versionTitleLabel.textColor = .secondaryLabel
+        infoCard.addSubview(versionTitleLabel)
+
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "22"
+        currentVersionLabel.translatesAutoresizingMaskIntoConstraints = false
+        currentVersionLabel.text = "• Đang chạy: v\(appVersion) (Build \(buildNum))"
+        currentVersionLabel.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        currentVersionLabel.textColor = .label
+        infoCard.addSubview(currentVersionLabel)
+
+        releaseInfoLabel.translatesAutoresizingMaskIntoConstraints = false
+        releaseInfoLabel.text = "• Bản phát hành trên GitHub: Đang kiểm tra..."
+        releaseInfoLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+        releaseInfoLabel.textColor = .secondaryLabel
+        releaseInfoLabel.numberOfLines = 0
+        infoCard.addSubview(releaseInfoLabel)
+
+        // Status & Progress Card
+        setupCardView(statusCard)
+        contentView.addSubview(statusCard)
+
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.text = "Kiểm tra tệp trong máy..."
+        statusLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        statusLabel.textColor = .label
+        statusLabel.numberOfLines = 0
+        statusCard.addSubview(statusLabel)
+
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        progressView.progressTintColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+        progressView.trackTintColor = UIColor.systemGray5
+        progressView.layer.cornerRadius = 3
+        progressView.clipsToBounds = true
+        progressView.isHidden = true
+        statusCard.addSubview(progressView)
+
+        progressLabel.translatesAutoresizingMaskIntoConstraints = false
+        progressLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+        progressLabel.textColor = .secondaryLabel
+        progressLabel.textAlignment = .center
+        progressLabel.isHidden = true
+        statusCard.addSubview(progressLabel)
+
+        // Buttons
+        setupActionButton(downloadButton, title: " 📥 Tải Bản Cài IPA Về Máy", bgColor: UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0), textColor: .white, action: #selector(handleDownloadIpa))
+        contentView.addSubview(downloadButton)
+
+        setupActionButton(shareButton, title: " 🚀 Chia Sẻ Để Sideload (TrollStore / SideStore)", bgColor: UIColor.systemGreen, textColor: .white, action: #selector(handleShareIpa))
+        contentView.addSubview(shareButton)
+
+        setupActionButton(githubButton, title: " 🌐 Xem Trang GitHub Releases", bgColor: UIColor.secondarySystemGroupedBackground, textColor: .label, action: #selector(handleOpenGitHub))
+        githubButton.layer.borderWidth = 1
+        githubButton.layer.borderColor = UIColor.separator.cgColor
+        contentView.addSubview(githubButton)
+
+        setupActionButton(deleteButton, title: " 🗑️ Xóa File IPA Khỏi Bộ Nhớ Máy", bgColor: UIColor.systemRed.withAlphaComponent(0.12), textColor: .systemRed, action: #selector(handleDeleteIpa))
+        deleteButton.isHidden = true
+        contentView.addSubview(deleteButton)
+
+        // Constraints
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+
+            headerIcon.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            headerIcon.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            headerIcon.widthAnchor.constraint(equalToConstant: 48),
+            headerIcon.heightAnchor.constraint(equalToConstant: 48),
+
+            titleLabel.topAnchor.constraint(equalTo: headerIcon.bottomAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
+            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+
+            infoCard.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 18),
+            infoCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            infoCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+
+            versionTitleLabel.topAnchor.constraint(equalTo: infoCard.topAnchor, constant: 12),
+            versionTitleLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
+            versionTitleLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
+
+            currentVersionLabel.topAnchor.constraint(equalTo: versionTitleLabel.bottomAnchor, constant: 6),
+            currentVersionLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
+            currentVersionLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
+
+            releaseInfoLabel.topAnchor.constraint(equalTo: currentVersionLabel.bottomAnchor, constant: 6),
+            releaseInfoLabel.leadingAnchor.constraint(equalTo: infoCard.leadingAnchor, constant: 14),
+            releaseInfoLabel.trailingAnchor.constraint(equalTo: infoCard.trailingAnchor, constant: -14),
+            releaseInfoLabel.bottomAnchor.constraint(equalTo: infoCard.bottomAnchor, constant: -12),
+
+            statusCard.topAnchor.constraint(equalTo: infoCard.bottomAnchor, constant: 14),
+            statusCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            statusCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+
+            statusLabel.topAnchor.constraint(equalTo: statusCard.topAnchor, constant: 12),
+            statusLabel.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
+            statusLabel.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
+
+            progressView.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 10),
+            progressView.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
+            progressView.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
+            progressView.heightAnchor.constraint(equalToConstant: 6),
+
+            progressLabel.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: 6),
+            progressLabel.leadingAnchor.constraint(equalTo: statusCard.leadingAnchor, constant: 14),
+            progressLabel.trailingAnchor.constraint(equalTo: statusCard.trailingAnchor, constant: -14),
+            progressLabel.bottomAnchor.constraint(equalTo: statusCard.bottomAnchor, constant: -12),
+
+            downloadButton.topAnchor.constraint(equalTo: statusCard.bottomAnchor, constant: 18),
+            downloadButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            downloadButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            downloadButton.heightAnchor.constraint(equalToConstant: 48),
+
+            shareButton.topAnchor.constraint(equalTo: downloadButton.bottomAnchor, constant: 10),
+            shareButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            shareButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            shareButton.heightAnchor.constraint(equalToConstant: 48),
+
+            githubButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 10),
+            githubButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            githubButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            githubButton.heightAnchor.constraint(equalToConstant: 44),
+
+            deleteButton.topAnchor.constraint(equalTo: githubButton.bottomAnchor, constant: 10),
+            deleteButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            deleteButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            deleteButton.heightAnchor.constraint(equalToConstant: 40),
+            deleteButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
+        ])
+    }
+
+    private func setupCardView(_ card: UIView) {
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.backgroundColor = .secondarySystemGroupedBackground
+        card.layer.cornerRadius = 14
+        card.layer.cornerCurve = .continuous
+        card.layer.borderWidth = 0.5
+        card.layer.borderColor = UIColor.separator.cgColor
+    }
+
+    private func setupActionButton(_ button: UIButton, title: String, bgColor: UIColor, textColor: UIColor, action: Selector) {
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(textColor, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .bold)
+        button.backgroundColor = bgColor
+        button.layer.cornerRadius = 24
+        button.layer.cornerCurve = .continuous
+        button.addTarget(self, action: action, for: .touchUpInside)
+    }
+
+    private func checkLocalIpa() {
+        let url = getLocalIpaUrl()
+        if FileManager.default.fileExists(atPath: url.path) {
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+               let size = attrs[.size] as? Int64 {
+                let mb = Double(size) / 1024.0 / 1024.0
+                statusLabel.text = String(format: "✅ Đã có sẵn file tải về trong máy (%.2f MB)\nSẵn sàng chia sẻ sang TrollStore / SideStore / Files.", mb)
+                statusLabel.textColor = .systemGreen
+                shareButton.isEnabled = true
+                shareButton.alpha = 1.0
+                deleteButton.isHidden = false
+                downloadButton.setTitle(" 🔄 Tải Lại Bản Mới Nhất", for: .normal)
+                return
+            }
+        }
+        statusLabel.text = "Chưa có file trong máy. Chạm 'Tải Bản Cài IPA' để bắt đầu."
+        statusLabel.textColor = .secondaryLabel
+        shareButton.isEnabled = false
+        shareButton.alpha = 0.5
+        deleteButton.isHidden = true
+        downloadButton.setTitle(" 📥 Tải Bản Cài IPA Về Máy", for: .normal)
+    }
+
+    private func fetchReleaseInfo() {
+        guard let url = URL(string: releaseApiUrl) else { return }
+        var req = URLRequest(url: url)
+        req.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        req.addValue("AntigravityMobile-App", forHTTPHeaderField: "User-Agent")
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+            let tagName = json["tag_name"] as? String ?? "latest"
+            var assetSizeStr = "1.38 MB"
+            var publishedStr = ""
+
+            if let assets = json["assets"] as? [[String: Any]],
+               let firstAsset = assets.first(where: { ($0["name"] as? String)?.hasSuffix(".ipa") == true }) ?? assets.first {
+                if let sizeBytes = firstAsset["size"] as? Int64 {
+                    let mb = Double(sizeBytes) / 1024.0 / 1024.0
+                    assetSizeStr = String(format: "%.2f MB", mb)
+                }
+                if let updatedAt = firstAsset["updated_at"] as? String {
+                    publishedStr = String(updatedAt.prefix(10))
+                }
+            }
+
+            DispatchQueue.main.async {
+                self?.releaseInfoLabel.text = "• Bản mới nhất: AntigravityMobile.ipa (\(assetSizeStr))\n• Tag: \(tagName) • Cập nhật: \(publishedStr)"
+            }
+        }.resume()
+    }
+
+    @objc private func handleClose() {
+        downloadTask?.cancel()
+        dismiss(animated: true)
+    }
+
+    @objc private func handleDownloadIpa() {
+        guard downloadTask == nil else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        downloadButton.isEnabled = false
+        downloadButton.alpha = 0.6
+        progressView.isHidden = false
+        progressLabel.isHidden = false
+        progressView.progress = 0
+        progressLabel.text = "Đang kết nối GitHub..."
+        statusLabel.text = "⏳ Đang tải file AntigravityMobile.ipa từ GitHub..."
+        statusLabel.textColor = UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1.0)
+
+        downloadTask = urlSession.downloadTask(with: directIpaUrl)
+        downloadTask?.resume()
+    }
+
+    @objc private func handleShareIpa() {
+        let url = getLocalIpaUrl()
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            let alert = UIAlertController(title: "Chưa Có File", message: "Vui lòng bấm 'Tải Bản Cài IPA Về Máy' trước khi chia sẻ.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Đóng", style: .default))
+            present(alert, animated: true)
+            return
+        }
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = shareButton
+            popover.sourceRect = shareButton.bounds
+        }
+        present(activityVC, animated: true)
+    }
+
+    @objc private func handleOpenGitHub() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if let url = URL(string: "https://github.com/nhdien07122012/antigravity-app/releases/tag/latest") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    @objc private func handleDeleteIpa() {
+        let alert = UIAlertController(title: "Xóa File Đã Tải?", message: "Xóa file AntigravityMobile.ipa khỏi bộ nhớ máy để giải phóng dung lượng?", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Xóa", style: .destructive, handler: { _ in
+            try? FileManager.default.removeItem(at: self.getLocalIpaUrl())
+            self.checkLocalIpa()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }))
+        present(alert, animated: true)
+    }
+
+    // URLSessionDownloadDelegate
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        if totalBytesExpectedToWrite > 0 {
+            let progress = Float(totalBytesWritten) / Float(totalBytesExpectedToWrite)
+            let mbWritten = Double(totalBytesWritten) / 1024.0 / 1024.0
+            let mbTotal = Double(totalBytesExpectedToWrite) / 1024.0 / 1024.0
+            let percent = Int(progress * 100)
+            DispatchQueue.main.async {
+                self.progressView.progress = progress
+                self.progressLabel.text = String(format: "Đang tải: %d%% (%.2f MB / %.2f MB)", percent, mbWritten, mbTotal)
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        let fileManager = FileManager.default
+        let destUrl = getLocalIpaUrl()
+        try? fileManager.removeItem(at: destUrl)
+        do {
+            try fileManager.moveItem(at: location, to: destUrl)
+            DispatchQueue.main.async {
+                self.downloadTask = nil
+                self.downloadButton.isEnabled = true
+                self.downloadButton.alpha = 1.0
+                self.progressView.isHidden = true
+                self.progressLabel.isHidden = true
+                self.checkLocalIpa()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+                // Prompt user to share immediately
+                let alert = UIAlertController(
+                    title: "Tải Thành Công! 🎉",
+                    message: "File AntigravityMobile.ipa đã được lưu trong máy. Bạn có muốn mở bảng chia sẻ để cài đặt ngay qua SideStore, TrollStore hoặc Tệp không?",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "Để Sau", style: .cancel))
+                alert.addAction(UIAlertAction(title: "Chia Sẻ Ngay 🚀", style: .default, handler: { _ in
+                    self.handleShareIpa()
+                }))
+                self.present(alert, animated: true)
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.downloadTask = nil
+                self.downloadButton.isEnabled = true
+                self.downloadButton.alpha = 1.0
+                self.progressView.isHidden = true
+                self.progressLabel.isHidden = true
+                self.statusLabel.text = "❌ Lỗi lưu file: \(error.localizedDescription)"
+                self.statusLabel.textColor = .systemRed
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            DispatchQueue.main.async {
+                self.downloadTask = nil
+                self.downloadButton.isEnabled = true
+                self.downloadButton.alpha = 1.0
+                self.progressView.isHidden = true
+                self.progressLabel.isHidden = true
+                self.statusLabel.text = "❌ Lỗi tải về: \(error.localizedDescription)"
+                self.statusLabel.textColor = .systemRed
             }
         }
     }

@@ -11,6 +11,7 @@ import {
   Type,
   ChevronDown,
   Folder,
+  Download,
 } from 'lucide-react';
 import { RemoteWorkspace } from '../types';
 
@@ -21,6 +22,7 @@ interface FloatingDockProps {
   onOpenScanner: () => void;
   onOpenManageWorkspaces: () => void;
   onOpenSettings: () => void;
+  onOpenIpaManager?: () => void;
   onCloseWorkspace: (id: string) => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
@@ -33,6 +35,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   onOpenScanner,
   onOpenManageWorkspaces,
   onOpenSettings,
+  onOpenIpaManager,
   onCloseWorkspace,
   isFullscreen,
   onToggleFullscreen,
@@ -184,6 +187,15 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             }`}
           >
             <Type className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Download & Sideload IPA Manager */}
+          <button
+            onClick={onOpenIpaManager}
+            title="Quản lý & Tải bản cài IPA để Sideload"
+            className="p-1.5 text-gray-600 dark:text-white/70 hover:text-black dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+          >
+            <Download className="w-3.5 h-3.5" />
           </button>
 
           {/* Manage Tabs */}

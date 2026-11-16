@@ -4,6 +4,33 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 22 - 2026-11-16
+- **Commit:** `pending`
+- **Mục tiêu thay đổi tóm tắt:** Bổ sung tính năng Quản lý & Tải bản cài IPA trực tiếp từ GitHub Releases tích hợp ngay trên Dock: cho phép tải file `AntigravityMobile.ipa`, hiển thị tiến trình tải trực quan, và mở bảng chia sẻ iOS (`UIActivityViewController`) để chuyển tiếp sang SideStore, TrollStore, AltStore, hoặc ứng dụng Tệp (Files) phục vụ Sideload trực tiếp trên iPhone.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - Thêm nút quản lý IPA `ipaButton` (icon `arrow.down.circle`) vào `actionStackView` trên thanh Dock nổi, đồng thời bổ sung lối tắt trong menu Cài đặt (`gearshape`).
+    - Tạo lớp `IPAManagerViewController` kế thừa `URLSessionDownloadDelegate`:
+      - Tự động lấy thông tin bản phát hành mới nhất từ GitHub Releases API (`AntigravityMobile.ipa`, kích thước, ngày cập nhật).
+      - Hiển thị thông tin phiên bản đang chạy và phiên bản mới nhất.
+      - Tải file `.ipa` từ GitHub với thanh tiến trình `UIProgressView` và nhãn % dung lượng tải thời gian thực.
+      - Tự động lưu trữ file vào thư mục `Documents` của ứng dụng.
+      - Bấm nút "🚀 Chia Sẻ Để Sideload" kích hoạt `UIActivityViewController` chia sẻ file IPA sang **TrollStore**, **SideStore**, **AltStore**, **Tệp (Files)**, **AirDrop**,...
+      - Bổ sung nút "🌐 Xem Trên GitHub Releases" và "🗑️ Xóa File IPA Đã Tải".
+  - `ios/App/App/Info.plist`:
+    - Bật `UIFileSharingEnabled = true` và `LSSupportsOpeningDocumentsInPlace = true` giúp thư mục Documents của Antigravity hiển thị trực tiếp trong ứng dụng Tệp (Files) của iOS.
+  - `src/components/IPAManagerModal.tsx`: Tạo modal tải và chia sẻ IPA cho nền tảng Web / PWA.
+  - `src/components/FloatingDock.tsx`: Thêm nút tải IPA với icon `Download` trên thanh Dock.
+  - `src/App.tsx`: Tích hợp trạng thái mở `IPAManagerModal`.
+  - `src/version.ts`: Nâng số hiệu bản dựng lên `Build 22` (`v1.0.0 (Build 22)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 22`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert <commit_sha> --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 21 - 2026-11-16
 - **Commit:** `f241c0b`
 - **GitHub Actions Run:** `#43851406388` (success)
