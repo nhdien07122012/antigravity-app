@@ -202,23 +202,25 @@ export const IPAManagerModal: React.FC<IPAManagerModalProps> = ({ isOpen, onClos
         <div className="px-6 pt-3 pb-1 border-b border-gray-100 dark:border-white/10 flex gap-2">
           <button
             onClick={() => setActiveTab('current')}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition ${
               activeTab === 'current'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
             }`}
           >
-            📦 Bản Cài Ứng Dụng
+            <ArrowDownTrayIcon className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>Bản Cài Ứng Dụng</span>
           </button>
           <button
             onClick={() => setActiveTab('custom')}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition ${
               activeTab === 'custom'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
             }`}
           >
-            🌐 Tải IPA Dự Án Khác
+            <GlobeAltIcon className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>Tải IPA Dự Án Khác</span>
           </button>
         </div>
 

@@ -397,7 +397,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         toastBannerView.addSubview(toastIconView)
 
         toastTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        toastTitleLabel.text = "Hội Thoại Hoàn Thành! 🎉"
+        toastTitleLabel.text = "Hội Thoại Hoàn Thành"
         toastTitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .bold)
         toastTitleLabel.textColor = .white
         toastBannerView.addSubview(toastTitleLabel)
@@ -1094,15 +1094,15 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
         // 4. Show Animated In-App Banner (Prominently displaying Project Name)
         showToastBanner(
-            title: "📁 Dự Án: \(resolvedProjectName) 🎉",
+            title: "Dự Án: \(resolvedProjectName)",
             message: "Đã hoàn thành phản hồi và tác vụ mới."
         )
 
         // 5. Fire Local Notification (for Background/Lockscreen/Banner - Project Name as Title)
         let content = UNMutableNotificationContent()
-        content.title = "📁 \(resolvedProjectName) 🎉"
+        content.title = "Dự Án: \(resolvedProjectName)"
         content.subtitle = "Đã Hoàn Thành Phản Hồi"
-        content.body = "Dự án \"\(resolvedProjectName)\" đã có kết quả mới! Chạm để xem chi tiết."
+        content.body = "Dự án \"\(resolvedProjectName)\" đã có kết quả mới. Chạm để xem chi tiết."
         content.sound = .default
         content.badge = 1
 
@@ -1571,7 +1571,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
     private func showDownloadStartedToast(filename: String) {
         let toast = UIAlertController(
-            title: "Đang Bắt Đầu Tải 📥",
+            title: "Đang Bắt Đầu Tải Tệp",
             message: "Tệp \"\(filename)\" đang được tải ngầm. Bạn có thể mở Trình Quản Lý Tải Về trên Dock để xem tiến trình.",
             preferredStyle: .actionSheet
         )
@@ -2356,7 +2356,7 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
 
         // Button 2: Quick Download Antigravity Latest IPA
         let defaultAppBtn = createHeaderButton(
-            title: " 🚀 Tải Antigravity IPA Mới Nhất",
+            title: "Tải Antigravity IPA Mới Nhất",
             subtitle: "Bản phát hành chính thức từ GitHub Releases",
             icon: "arrow.down.circle",
             bgColor: UIColor.secondarySystemGroupedBackground,
@@ -2369,7 +2369,7 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
 
         // Button 3: Reveal in Files App
         let openFilesBtn = createHeaderButton(
-            title: " 📂 Mở Trong Ứng Dụng \"Tệp\" (Files)",
+            title: "Mở Trong Ứng Dụng Tệp (Files)",
             subtitle: "Xem thư mục Downloads trên iPhone của bạn",
             icon: "folder",
             bgColor: UIColor.secondarySystemGroupedBackground,
@@ -2582,7 +2582,7 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
         cell.textLabel?.text = item.filename
         cell.textLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
 
-        let subtitle = "\(item.fileSize.formattedFileSize) • \(item.downloadDate.relativeDisplay)\(item.isIpa ? " • 🚀 Sideload IPA" : "")"
+        let subtitle = "\(item.fileSize.formattedFileSize) • \(item.downloadDate.relativeDisplay)\(item.isIpa ? " • Sideload IPA" : "")"
         cell.detailTextLabel?.text = subtitle
         cell.detailTextLabel?.textColor = .secondaryLabel
 
@@ -2652,24 +2652,24 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
             preferredStyle: .actionSheet
         )
 
-        sheet.addAction(UIAlertAction(title: "🚀 Chia Sẻ Để Sideload (TrollStore / SideStore / AltStore)", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Chia Sẻ Để Sideload (TrollStore / SideStore / AltStore)", style: .default, handler: { _ in
             self.shareFile(item, sourceView: sourceView)
         }))
 
-        sheet.addAction(UIAlertAction(title: "📂 Mở Trong Ứng Dụng Tệp (Files)", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Mở Trong Ứng Dụng Tệp (Files)", style: .default, handler: { _ in
             self.shareFile(item, sourceView: sourceView)
         }))
 
-        sheet.addAction(UIAlertAction(title: "✏️ Đổi Tên Tệp", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Đổi Tên Tệp", style: .default, handler: { _ in
             self.showRenameDialog(for: item)
         }))
 
-        sheet.addAction(UIAlertAction(title: "📋 Sao Chép Tên Tệp", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Sao Chép Tên Tệp", style: .default, handler: { _ in
             UIPasteboard.general.string = item.filename
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }))
 
-        sheet.addAction(UIAlertAction(title: "🗑️ Xóa Tệp Này Khỏi Máy", style: .destructive, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Xóa Tệp Này Khỏi Máy", style: .destructive, handler: { _ in
             DownloadManager.shared.deleteItem(item)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }))
@@ -2690,19 +2690,19 @@ class SafariDownloadManagerViewController: UIViewController, UITableViewDataSour
             preferredStyle: .actionSheet
         )
 
-        sheet.addAction(UIAlertAction(title: "👁️ Xem Nhanh Tệp (Quick Look)", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Xem Nhanh Tệp (Quick Look)", style: .default, handler: { _ in
             self.previewFile(item)
         }))
 
-        sheet.addAction(UIAlertAction(title: "🚀 Chia Sẻ Tệp", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Chia Sẻ Tệp", style: .default, handler: { _ in
             self.shareFile(item, sourceView: sourceView)
         }))
 
-        sheet.addAction(UIAlertAction(title: "✏️ Đổi Tên Tệp", style: .default, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Đổi Tên Tệp", style: .default, handler: { _ in
             self.showRenameDialog(for: item)
         }))
 
-        sheet.addAction(UIAlertAction(title: "🗑️ Xóa Tệp Này", style: .destructive, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "Xóa Tệp Này", style: .destructive, handler: { _ in
             DownloadManager.shared.deleteItem(item)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }))
@@ -3165,7 +3165,7 @@ class ModernSettingsMenuViewController: UIViewController {
         posHeaderStack.addArrangedSubview(posTextStack)
         posStack.addArrangedSubview(posHeaderStack)
 
-        positionSegment = UISegmentedControl(items: ["⬇️ Đáy", "⬅️ Cạnh Trái", "➡️ Cạnh Phải"])
+        positionSegment = UISegmentedControl(items: ["Đáy", "Cạnh Trái", "Cạnh Phải"])
         switch currentDockPosition {
         case .bottom: positionSegment.selectedSegmentIndex = 0
         case .left: positionSegment.selectedSegmentIndex = 1
@@ -3220,7 +3220,7 @@ class ModernSettingsMenuViewController: UIViewController {
         modeHeaderStack.addArrangedSubview(modeTextStack)
         modeStack.addArrangedSubview(modeHeaderStack)
 
-        displayModeSegment = UISegmentedControl(items: ["👁️ Luôn Hiện", "⏱️ Tự Động Ẩn"])
+        displayModeSegment = UISegmentedControl(items: ["Luôn Hiện", "Tự Động Ẩn"])
         switch currentDockDisplayMode {
         case .always: displayModeSegment.selectedSegmentIndex = 0
         case .autohide: displayModeSegment.selectedSegmentIndex = 1
@@ -3490,7 +3490,7 @@ class ModernSettingsMenuViewController: UIViewController {
         // Row 3: Test chime & toast button
         let testRow = createRowButton(
             iconName: "speaker.wave.2.fill",
-            title: "🎉 Thử Nghiệm Chuông & Biểu Ngữ Ngay",
+            title: "Thử Nghiệm Chuông & Biểu Ngữ Ngay",
             badgeBgColor: UIColor.systemPurple.withAlphaComponent(0.12),
             badgeTintColor: .systemPurple,
             isDestructive: false,

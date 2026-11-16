@@ -11,6 +11,7 @@ import {
   MagnifyingGlassMinusIcon,
   AdjustmentsHorizontalIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { RemoteWorkspace } from '../types';
@@ -105,7 +106,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             style={{ backgroundColor: activeWorkspace?.iconColor || '#2563eb' }}
           />
           <span className="max-w-[100px] truncate">{activeWorkspace?.name || 'Dự án'}</span>
-          <span className="text-[10px] opacity-60">▴</span>
+          <ChevronUpIcon className="w-3 h-3 opacity-60" />
         </button>
       </div>
     );

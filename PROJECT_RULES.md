@@ -48,10 +48,19 @@ Tài liệu này là bộ quy chuẩn kỷ luật bắt buộc dành cho mọi A
 
 ---
 
-## 🚀 5. CHECKLIST BẮT BUỘC TRƯỚC KHI BÁO CÁO HOÀN THÀNH
+## 🎨 5. QUY TẮC THIẾT KẾ GIAO DIỆN PHẲNG & HỆ THỐNG ICON HEROICONS (BẮT BUỘC - KHÔNG DÙNG EMOJI)
+- **Tuyệt đối KHÔNG sử dụng icon emoji** trong bất kỳ thành phần giao diện, nút bấm, menu, thanh dock, action sheet, tiêu đề modal, thông báo toast/alert hay nhãn lựa chọn nào của ứng dụng (cả Web UI và Native iOS).
+- **Bắt buộc sử dụng hệ thống icon Heroicons chính thức** (`@heroicons/react/24/outline` hoặc `@heroicons/react/24/solid`) cho toàn bộ giao diện Web/React và SF Symbols / Heroicons vector phẳng cho Native iOS.
+- **Phong cách thiết kế:** Giao diện phẳng (Flat UI), tối giản, tinh tế, hiện đại chuẩn phong cách Apple iOS 18 và Tailwind CSS; nhãn chữ và biểu tượng phải tách biệt rõ ràng, không ghép emoji vào chuỗi văn bản.
+- **Quy tắc vĩnh viễn:** Mọi tính năng phát triển trong tương lai đều phải tuân thủ nguyên tắc này mà không cần hỏi lại người dùng.
+
+---
+
+## 🚀 6. CHECKLIST BẮT BUỘC TRƯỚC KHI BÁO CÁO HOÀN THÀNH
 Trước khi thông báo hoàn tất nhiệm vụ cho người dùng, AI phải tự kiểm tra:
 - [ ] **Bảo toàn phạm vi**: Tất cả chức năng ngoài yêu cầu đều nguyên vẹn 100%, không bị ảnh hưởng ngoài ý muốn.
 - [ ] Nếu có ảnh hưởng liên đới: Đã hỏi ý kiến và được người dùng đồng ý trước khi can thiệp.
+- [ ] **Flat UI & Heroicons**: Tuyệt đối không dùng emoji, 100% sử dụng hệ thống icon Heroicons chuẩn.
 - [ ] Đã kiểm tra cú pháp, sự kiện DOM, không gây crash ứng dụng.
 - [ ] Đã đồng bộ sang thư mục phân phối (`dist/`).
 - [ ] Đã chạy lệnh sync nền tảng (`npx cap sync ios`).

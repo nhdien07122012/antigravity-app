@@ -4,6 +4,43 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 29 - 2026-11-16
+- **Commit:** `1fb2d87`
+- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Mục tiêu thay đổi tóm tắt:** Loại bỏ 100% icon emoji trong toàn bộ ứng dụng (cả Web UI và Native iOS), chuyển đổi sang phong cách thiết kế phẳng hiện đại (Flat UI) chuẩn Apple iOS 18 và đồng bộ hoàn toàn với hệ thống icon Heroicons chính thức (`@heroicons/react`); Bổ sung điều khoản kỷ luật thiết kế Flat UI & Heroicons vĩnh viễn vào `PROJECT_RULES.md`.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `PROJECT_RULES.md`:
+    - Bổ sung **Điều khoản 5: QUY TẮC THIẾT KẾ GIAO DIỆN PHẲNG & HỆ THỐNG ICON HEROICONS (BẮT BUỘC - KHÔNG DÙNG EMOJI)**.
+    - Cấm vĩnh viễn việc sử dụng emoji trong bất kỳ nút bấm, menu, thanh dock, action sheet, alert, toast hay nhãn nào.
+    - Bắt buộc dùng Heroicons (`@heroicons/react`) cho Web và SF Symbols / Heroicons vector phẳng cho iOS.
+    - Cập nhật checklist kiểm tra trước khi bàn giao.
+  - `ios/App/App/AppDelegate.swift`:
+    - Loại bỏ toàn bộ emoji trong toàn bộ mã nguồn Swift:
+      - Loại bỏ `🎉` khỏi toast title ("Hội Thoại Hoàn Thành").
+      - Loại bỏ `📁` và `🎉` khỏi tiêu đề thông báo đẩy hệ thống ("Dự Án: ...").
+      - Loại bỏ `📥` khỏi toast tải tệp.
+      - Loại bỏ `🚀` và `📂` khỏi header buttons trong `SafariDownloadManagerViewController`.
+      - Loại bỏ các emoji `🚀`, `📂`, `✏️`, `📋`, `🗑️`, `👁️` trong action sheets tải về (`showIpaActionSheet`, `showGeneralFileActionSheet`), thay bằng typography sắc nét kết hợp Apple SF Symbols vector phẳng.
+      - Loại bỏ `⬇️`, `⬅️`, `➡️` trong segment chọn vị trí dock.
+      - Loại bỏ `👁️`, `⏱️` trong segment chọn chế độ hiển thị dock.
+      - Loại bỏ `🎉` trong alert kiểm tra chuông thông báo.
+  - `src/components/IPAManagerModal.tsx`:
+    - Thay thế emoji ở các tab điều hướng (`📦 Bản Cài Ứng Dụng`, `🌐 Tải IPA Dự Án Khác`) bằng Heroicons chính thức (`<ArrowDownTrayIcon>`, `<GlobeAltIcon>`).
+  - `src/components/SettingsModal.tsx`:
+    - Thay thế emoji trong các nút chọn Vị trí dock (`⬇️`, `⬅️`, `➡️`) bằng Heroicons phẳng (`ArrowDownCircleIcon`, `ArrowLeftCircleIcon`, `ArrowRightCircleIcon`).
+    - Thay thế emoji trong các nút chọn Chế độ hiển thị dock (`👁️`, `⏱️`) bằng Heroicons phẳng (`EyeIcon`, `ClockIcon`).
+    - Loại bỏ emoji trong chuỗi thông báo thử nghiệm.
+  - `src/components/FloatingDock.tsx`:
+    - Thay thế ký tự `▴` khi thu gọn bằng `<ChevronUpIcon>`.
+  - `src/version.ts`: Nâng cấp lên `Build 29` (`v1.0.0 (Build 29)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 29`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 1fb2d87 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 28 - 2026-11-16
 - **Commit:** `3adc59e`
 - **GitHub Actions Run:** `#43906197821` (success)

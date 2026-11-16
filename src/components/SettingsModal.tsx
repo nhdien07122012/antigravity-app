@@ -18,6 +18,11 @@ import {
   TrashIcon,
   ArrowsPointingOutIcon,
   InformationCircleIcon,
+  ArrowDownCircleIcon,
+  ArrowLeftCircleIcon,
+  ArrowRightCircleIcon,
+  EyeIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { AppSettings } from '../types';
 import { FULL_VERSION, BUILD_DATE } from '../version';
@@ -150,13 +155,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } else {
       // In web browser preview
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('📁 Dự Án: antigravity-app 🎉', {
+        new Notification('Dự Án: antigravity-app', {
           body: 'Dự án "antigravity-app" đã hoàn thành phản hồi và tác vụ mới!',
         });
       }
     }
     setTimeout(() => {
-      setTestNotificationStatus('Chuông và biểu ngữ đã phát thành công! 🎉');
+      setTestNotificationStatus('Chuông và biểu ngữ đã phát thành công!');
       setTimeout(() => setTestNotificationStatus(null), 3000);
     }, 500);
   };
@@ -273,23 +278,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Vị Trí Dock:</span>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'bottom', label: '⬇️ Đáy' },
-                  { id: 'left', label: '⬅️ Cạnh Trái' },
-                  { id: 'right', label: '➡️ Cạnh Phải' },
-                ].map((pos) => (
-                  <button
-                    key={pos.id}
-                    type="button"
-                    onClick={() => setDockPositionState(pos.id as any)}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition ${
-                      dockPosition === pos.id
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    {pos.label}
-                  </button>
-                ))}
+                  { id: 'bottom', label: 'Đáy', icon: ArrowDownCircleIcon },
+                  { id: 'left', label: 'Cạnh Trái', icon: ArrowLeftCircleIcon },
+                  { id: 'right', label: 'Cạnh Phải', icon: ArrowRightCircleIcon },
+                ].map((pos) => {
+                  const Icon = pos.icon;
+                  return (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      onClick={() => setDockPositionState(pos.id as any)}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition ${
+                        dockPosition === pos.id
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span>{pos.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -298,22 +307,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Chế Độ Hiển Thị:</span>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'always', label: '👁️ Luôn Hiện' },
-                  { id: 'autohide', label: '⏱️ Tự Động Ẩn' },
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => setDockDisplayModeState(mode.id as any)}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition ${
-                      dockDisplayMode === mode.id
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                        : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
+                  { id: 'always', label: 'Luôn Hiện', icon: EyeIcon },
+                  { id: 'autohide', label: 'Tự Động Ẩn', icon: ClockIcon },
+                ].map((mode) => {
+                  const Icon = mode.icon;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setDockDisplayModeState(mode.id as any)}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition ${
+                        dockDisplayMode === mode.id
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-white dark:bg-black/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span>{mode.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
