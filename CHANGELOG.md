@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 32 - 2026-11-17
-- **Commit:** `c282a1f`
-- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Commit:** `ab5824f`
+- **GitHub Actions Run:** `#44096588586` (success)
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi giao diện không tự phóng to vừa khung màn hình khi thanh dock được tự động ẩn ở cạnh trái hoặc cạnh phải; Khi dock thu nhỏ về hai cạnh bên, toàn bộ khung hiển thị webview và chat box tự động mở rộng 100% toàn bộ chiều ngang màn hình (loại bỏ hoàn toàn khoảng đen thụt lề 56pt), mang lại trải nghiệm xem tràn viền hoàn hảo như khi ẩn ở cạnh đáy.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -20,7 +20,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 32`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert c282a1f --no-edit
+  git revert ab5824f --no-edit
   ```
 
 ---
