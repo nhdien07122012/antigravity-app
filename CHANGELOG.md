@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 30 - 2026-11-17
-- **Commit:** `9a6cdf3`
-- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Commit:** `127d243`
+- **GitHub Actions Run:** `#43996891307` (success)
 - **Mục tiêu thay đổi tóm tắt:** Hạ thấp vị trí thanh Dock và thanh ngang thu nhỏ (Mini Dock Handle Pill) ôm sát cạnh đáy màn hình chuẩn phong cách Apple Safari trên iOS; Thiết kế cơ chế viewport động (Safari-like Dynamic Viewport Offset) tự động chừa không gian đệm an toàn bên trên dock, đảm bảo 100% khung nhập liệu chat ("Ask anything...", nút microphone, nút gửi) của Google Antigravity / Gemini và các trang web không bao giờ bị che khuất; Tích hợp cơ chế tự động ẩn dock khi bàn phím ảo iOS xuất hiện.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -30,7 +30,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 30`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 9a6cdf3 --no-edit
+  git revert 127d243 --no-edit
   ```
 
 ---
