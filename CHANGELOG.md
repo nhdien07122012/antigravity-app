@@ -4,6 +4,36 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 31 - 2026-11-17
+- **Commit:** `16df9d6`
+- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Mục tiêu thay đổi tóm tắt:** Tinh chỉnh vị trí và kích thước dock tương tự như Safari, tuyệt đối không đè lên thanh điều hướng Home Indicator của iPhone (Neo dock cách đường safe area đáy 4pt, tạo khoảng trống 23pt an toàn phía trên thanh gạt home); Đồng thời tối ưu kích thước thanh ngang khi dock thu nhỏ mỏng hơn (chỉ dày 5pt, góc bo cong 2.5pt siêu mỏng như thanh grabber của Apple) với vùng cảm ứng mở rộng 80x44pt giúp chạm mở cực kỳ mượt mà.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Không đè lên thanh điều hướng iPhone (Home Indicator Clearance):**
+      - Neo `dockContainerView.bottomAnchor` vào `view.safeAreaLayoutGuide.bottomAnchor, constant: -4` (thay vì neo vào `view.bottomAnchor`).
+      - Nhờ đó, dock luôn nằm phía trên thanh gạt điều hướng của iPhone với khoảng cách an toàn rộng hơn 20pt, giải phóng hoàn toàn thanh gạt điều hướng Home Indicator của iOS.
+      - Chiều cao dock 44pt, `cornerRadius = 22` dạng capsule hoàn hảo đúng chuẩn Apple Safari.
+    - **Kích thước dock khi thu nhỏ mỏng hơn (Ultra-Slim 5pt Grabber Handle):**
+      - Nâng cấp `miniDockTabButton` thành `SlimMiniDockButton` (kế thừa `UIButton` với vùng chạm `bounds.insetBy(dx: -20, dy: -18)` lên tới 80x44pt).
+      - Kích thước thanh khi thu nhỏ giảm từ 16pt xuống siêu mỏng **5pt** (rộng 46pt, cao 5pt, cornerRadius 2.5pt dạng thanh gạt pill).
+      - Neo tại `safeAreaLayoutGuide.bottomAnchor, constant: -4`, hoàn toàn không đè lên thanh điều hướng của iPhone.
+      - Bỏ icon bên trong thanh mỏng để có giao diện phẳng thủy tinh mờ tinh tế và sắc nét.
+    - **Tối ưu khung chat (Safari Dynamic Viewport Offset):**
+      - `containerBottomConstraint` neo vào `safeAreaLayoutGuide.bottomAnchor`:
+        - Khi dock mở: dừng tại `-54pt` (cách đỉnh dock 6pt), giữ cho khung chat Gemini `Ask anything...` và nút bấm nằm trọn vẹn và thông thoáng phía trên dock y hệt Safari.
+        - Khi dock thu nhỏ: dừng tại `-15pt`, mở rộng tối đa không gian đọc nội dung.
+  - `src/components/FloatingDock.tsx`:
+    - Giảm độ dày nút dock thu nhỏ trong web xuống `px-2.5 py-1 text-[11px]` thanh thoát và mỏng hơn.
+  - `src/version.ts`: Nâng cấp lên `Build 31` (`v1.0.0 (Build 31)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 31`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 16df9d6 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 30 - 2026-11-17
 - **Commit:** `127d243`
 - **GitHub Actions Run:** `#43996891307` (success)

@@ -99,7 +99,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
       <div className="fixed bottom-[calc(4px+env(safe-area-inset-bottom,0px))] right-3 z-40 select-none">
         <button
           onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 dark:bg-[#0a0a0f]/85 hover:bg-white dark:hover:bg-black backdrop-blur-2xl border border-black/10 dark:border-white/20 ring-1 ring-black/5 dark:ring-white/10 rounded-full shadow-xl text-xs font-bold text-gray-800 dark:text-white active:scale-95 transition-all"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-white/90 dark:bg-[#0a0a0f]/85 hover:bg-white dark:hover:bg-black backdrop-blur-2xl border border-black/10 dark:border-white/20 ring-1 ring-black/5 dark:ring-white/10 rounded-full shadow-lg text-[11px] font-bold text-gray-800 dark:text-white active:scale-95 transition-all"
         >
           <span
             className="w-2 h-2 rounded-full shrink-0 animate-pulse"

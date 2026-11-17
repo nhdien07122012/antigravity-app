@@ -148,6 +148,14 @@ enum DockDisplayMode: String {
     case autohide = "autohide"
 }
 
+// MARK: - Slim Mini Dock Button (Ultra-thin visual, comfortably expanded touch area)
+final class SlimMiniDockButton: UIButton {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let touchArea = bounds.insetBy(dx: -20, dy: -18)
+        return touchArea.contains(point)
+    }
+}
+
 // MARK: - Main Container View Controller
 class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, QRScannerDelegate, WKScriptMessageHandler {
 
@@ -183,8 +191,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private let fullscreenButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
 
-    // Mini Expand Handle (for Auto-Hide mode)
-    private let miniDockTabButton = UIButton(type: .system)
+    // Mini Expand Handle (Ultra-thin pill for Auto-Hide mode)
+    private let miniDockTabButton = SlimMiniDockButton(type: .system)
     private let miniDockEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialLight))
 
     // Completion Toast Banner
@@ -251,13 +259,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         if dockContainerView.bounds.width > 0 && dockContainerView.bounds.height > 0 {
             dockContainerView.layer.shadowPath = UIBezierPath(
                 roundedRect: dockContainerView.bounds,
-                cornerRadius: 24
+                cornerRadius: 22
             ).cgPath
         }
         if miniDockTabButton.bounds.width > 0 && miniDockTabButton.bounds.height > 0 {
             miniDockTabButton.layer.shadowPath = UIBezierPath(
                 roundedRect: miniDockTabButton.bounds,
-                cornerRadius: min(miniDockTabButton.bounds.width, miniDockTabButton.bounds.height) / 2
+                cornerRadius: 2.5
             ).cgPath
         }
         updateContainerConstraints(animated: false)
@@ -307,23 +315,23 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         // 2. Dock Container (holds the smooth capsule shadow)
         dockContainerView.translatesAutoresizingMaskIntoConstraints = false
         dockContainerView.backgroundColor = .clear
-        dockContainerView.layer.cornerRadius = 24
+        dockContainerView.layer.cornerRadius = 22
         dockContainerView.layer.cornerCurve = .continuous
         dockContainerView.layer.masksToBounds = false
-        dockContainerView.layer.shadowRadius = 12
-        dockContainerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        dockContainerView.layer.shadowRadius = 10
+        dockContainerView.layer.shadowOffset = CGSize(width: 0, height: 3)
         view.addSubview(dockContainerView)
 
-        // 3. Dock Frosted Glass Effect (strictly clipped to cornerRadius = 24, zero square halo)
+        // 3. Dock Frosted Glass Effect (strictly clipped to cornerRadius = 22, zero square halo)
         dockEffectView.translatesAutoresizingMaskIntoConstraints = false
-        dockEffectView.layer.cornerRadius = 24
+        dockEffectView.layer.cornerRadius = 22
         dockEffectView.layer.cornerCurve = .continuous
         dockEffectView.clipsToBounds = true
         dockEffectView.layer.borderWidth = 0.65
         dockContainerView.addSubview(dockEffectView)
 
         let dockContentView = dockEffectView.contentView
-        dockContentView.layer.cornerRadius = 24
+        dockContentView.layer.cornerRadius = 22
         dockContentView.layer.cornerCurve = .continuous
         dockContentView.clipsToBounds = true
 
@@ -417,12 +425,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         // 8. Mini Dock Expand Pill (Shown when dock is minimized in Auto-Hide mode)
         miniDockTabButton.translatesAutoresizingMaskIntoConstraints = false
         miniDockTabButton.backgroundColor = .clear
-        miniDockTabButton.layer.cornerRadius = 8
+        miniDockTabButton.layer.cornerRadius = 2.5
         miniDockTabButton.layer.cornerCurve = .continuous
         miniDockTabButton.clipsToBounds = false
         miniDockTabButton.layer.shadowColor = UIColor.black.cgColor
-        miniDockTabButton.layer.shadowOpacity = 0.25
-        miniDockTabButton.layer.shadowRadius = 4
+        miniDockTabButton.layer.shadowOpacity = 0.20
+        miniDockTabButton.layer.shadowRadius = 2
         miniDockTabButton.layer.shadowOffset = CGSize(width: 0, height: 1)
         miniDockTabButton.alpha = 0
         miniDockTabButton.isHidden = true
@@ -430,18 +438,18 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         view.addSubview(miniDockTabButton)
 
         miniDockEffectView.translatesAutoresizingMaskIntoConstraints = false
-        miniDockEffectView.layer.cornerRadius = 8
+        miniDockEffectView.layer.cornerRadius = 2.5
         miniDockEffectView.layer.cornerCurve = .continuous
         miniDockEffectView.clipsToBounds = true
         miniDockEffectView.layer.borderWidth = 0.5
         miniDockEffectView.isUserInteractionEnabled = false
         miniDockTabButton.addSubview(miniDockEffectView)
 
-        // Dynamic Container Constraints (Safari-like: leaves room for chat box)
+        // Dynamic Container Constraints (Safari-like: leaves room for chat box above dock)
         containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).isActive = true
         containerLeadingConstraint = containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor)
         containerTrailingConstraint = containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        containerBottomConstraint = containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        containerBottomConstraint = containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         containerLeadingConstraint?.isActive = true
         containerTrailingConstraint?.isActive = true
         containerBottomConstraint?.isActive = true
@@ -523,15 +531,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             actionStackView.axis = .horizontal
             actionStackView.alignment = .center
 
-            let safeBottom = view.safeAreaInsets.bottom
-            let hasHomeBar = safeBottom > 10
-            let bottomMargin: CGFloat = hasHomeBar ? 12 : 6
-
             dockPositionConstraints = [
                 dockContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
                 dockContainerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
                 dockContainerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
-                dockContainerView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -bottomMargin),
+                dockContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -4),
                 dockContainerView.heightAnchor.constraint(equalToConstant: 44)
             ]
 
@@ -551,12 +555,11 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor)
             ]
 
-            let miniBottomMargin: CGFloat = hasHomeBar ? 6 : 4
             miniDockConstraints = [
                 miniDockTabButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                miniDockTabButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -miniBottomMargin),
-                miniDockTabButton.widthAnchor.constraint(equalToConstant: 60),
-                miniDockTabButton.heightAnchor.constraint(equalToConstant: 16)
+                miniDockTabButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -4),
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 46),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 5)
             ]
 
         case .left:
@@ -590,10 +593,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             ]
 
             miniDockConstraints = [
-                miniDockTabButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 2),
+                miniDockTabButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 4),
                 miniDockTabButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                miniDockTabButton.widthAnchor.constraint(equalToConstant: 18),
-                miniDockTabButton.heightAnchor.constraint(equalToConstant: 64)
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 5),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 46)
             ]
 
         case .right:
@@ -627,10 +630,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             ]
 
             miniDockConstraints = [
-                miniDockTabButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -2),
+                miniDockTabButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -4),
                 miniDockTabButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                miniDockTabButton.widthAnchor.constraint(equalToConstant: 18),
-                miniDockTabButton.heightAnchor.constraint(equalToConstant: 64)
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 5),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 46)
             ]
         }
 
@@ -660,10 +663,9 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
     // MARK: - Safari-like Dynamic Viewport Offset (Leaves room for chat box above dock)
     private func updateContainerConstraints(animated: Bool = false) {
-        let safeBottom = view.safeAreaInsets.bottom
-        let hasHomeBar = safeBottom > 10
-        let dockBottomMargin: CGFloat = hasHomeBar ? 12 : 6
         let dockHeight: CGFloat = 44
+        let dockBottomMargin: CGFloat = 4 // Clean spacing above home indicator
+        let spacingAboveDock: CGFloat = 6 // Clean spacing between chat box and dock
 
         let leadingConstant: CGFloat
         let trailingConstant: CGFloat
@@ -672,27 +674,27 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         if isFullscreen {
             leadingConstant = 0
             trailingConstant = 0
-            bottomConstant = hasHomeBar ? -safeBottom : 0
+            bottomConstant = 0
         } else {
             switch dockPosition {
             case .bottom:
                 leadingConstant = 0
                 trailingConstant = 0
                 if isDockMinimized {
-                    let miniHeight: CGFloat = 16
-                    let miniBottomMargin: CGFloat = hasHomeBar ? 6 : 4
-                    bottomConstant = -(miniHeight + miniBottomMargin + 4)
+                    // Minimized: slim grabber handle sits at -4, height 5pt; chat box sits comfortably above
+                    bottomConstant = -(dockBottomMargin + 5 + 6) // -15pt from safeAreaLayoutGuide.bottom
                 } else {
-                    bottomConstant = -(dockHeight + dockBottomMargin + 6)
+                    // Expanded: dock sits at -4, height 44pt; container stops 6pt above dock
+                    bottomConstant = -(dockBottomMargin + dockHeight + spacingAboveDock) // -54pt from safeAreaLayoutGuide.bottom
                 }
             case .left:
                 leadingConstant = 56
                 trailingConstant = 0
-                bottomConstant = hasHomeBar ? -safeBottom : 0
+                bottomConstant = -4
             case .right:
                 leadingConstant = 0
                 trailingConstant = -56
-                bottomConstant = hasHomeBar ? -safeBottom : 0
+                bottomConstant = -4
             }
         }
 
@@ -715,19 +717,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         let bg = isDark ? UIColor(red: 0.12, green: 0.12, blue: 0.16, alpha: 0.85) : UIColor(red: 0.95, green: 0.95, blue: 0.98, alpha: 0.9)
         miniDockEffectView.contentView.backgroundColor = bg
         miniDockEffectView.layer.borderColor = (isDark ? UIColor(white: 1.0, alpha: 0.25) : UIColor(white: 0.0, alpha: 0.15)).cgColor
-
-        let iconName: String
-        switch dockPosition {
-        case .bottom:
-            iconName = "chevron.compact.up"
-        case .left:
-            iconName = "chevron.right"
-        case .right:
-            iconName = "chevron.left"
-        }
-        let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)
-        miniDockTabButton.setImage(UIImage(systemName: iconName, withConfiguration: config), for: .normal)
-        miniDockTabButton.tintColor = isDark ? .white : .label
+        miniDockTabButton.setImage(nil, for: .normal)
     }
 
     // MARK: - Auto-Hide & Minimize Controls
