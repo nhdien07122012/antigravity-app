@@ -5,12 +5,16 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+concurrency:
+  group: build-ios-ipa
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   build-ipa:
-    runs-on: macos-15
+    runs-on: macos-14
 
     steps:
       - name: Checkout Source Code
