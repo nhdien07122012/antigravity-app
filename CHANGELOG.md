@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 31 - 2026-11-17
-- **Commit:** `16df9d6`
-- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Commit:** `a6f8b21`
+- **GitHub Actions Run:** `#43998309512` (success)
 - **Mục tiêu thay đổi tóm tắt:** Tinh chỉnh vị trí và kích thước dock tương tự như Safari, tuyệt đối không đè lên thanh điều hướng Home Indicator của iPhone (Neo dock cách đường safe area đáy 4pt, tạo khoảng trống 23pt an toàn phía trên thanh gạt home); Đồng thời tối ưu kích thước thanh ngang khi dock thu nhỏ mỏng hơn (chỉ dày 5pt, góc bo cong 2.5pt siêu mỏng như thanh grabber của Apple) với vùng cảm ứng mở rộng 80x44pt giúp chạm mở cực kỳ mượt mà.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -29,7 +29,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 31`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 16df9d6 --no-edit
+  git revert a6f8b21 --no-edit
   ```
 
 ---
