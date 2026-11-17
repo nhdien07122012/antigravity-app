@@ -4,6 +4,37 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 30 - 2026-11-17
+- **Commit:** `9a6cdf3`
+- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Mục tiêu thay đổi tóm tắt:** Hạ thấp vị trí thanh Dock và thanh ngang thu nhỏ (Mini Dock Handle Pill) ôm sát cạnh đáy màn hình chuẩn phong cách Apple Safari trên iOS; Thiết kế cơ chế viewport động (Safari-like Dynamic Viewport Offset) tự động chừa không gian đệm an toàn bên trên dock, đảm bảo 100% khung nhập liệu chat ("Ask anything...", nút microphone, nút gửi) của Google Antigravity / Gemini và các trang web không bao giờ bị che khuất; Tích hợp cơ chế tự động ẩn dock khi bàn phím ảo iOS xuất hiện.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Hạ thấp vị trí Dock & Mini Dock Handle:**
+      - Đưa `dockContainerView` xuống sát cạnh đáy màn hình: `bottomAnchor` liên kết với `view.bottomAnchor` với khoảng cách đệm ôm sát thanh Home Indicator (`12pt` trên thiết bị có Face ID, `6pt` trên Touch ID/iPad) thay vì bị đẩy lên quá cao (+42pt) như trước.
+      - Chiều cao dock tối ưu về chuẩn toolbar iOS 44pt.
+      - Thanh ngang khi thu nhỏ (`miniDockTabButton`): Đưa xuống sát cạnh đáy (`view.bottomAnchor, constant: -6`), kích thước 60x16pt, cornerRadius 8pt; Đảm bảo khi dock mở thì thanh mini được ẩn hoàn toàn (`isHidden = true`, `alpha = 0`), không bao giờ bị thò ra phía sau dock.
+    - **Cơ chế chừa không gian cho khung chat (Safari-like Dynamic Viewport Offset):**
+      - Chuyển đổi các ràng buộc của `containerView` thành ràng buộc động (`containerLeadingConstraint`, `containerTrailingConstraint`, `containerBottomConstraint`).
+      - Hàm `updateContainerConstraints(animated:)`: Tự động tính toán điểm dừng đáy của khung hiển thị webview theo trạng thái dock:
+        - Khi dock mở ở cạnh đáy: Khung webview tự động dừng phía trên dock (cách đỉnh dock 6pt, `bottomConstant = -(44 + 12 + 6) = -62pt`), giúp toàn bộ khung chat và các nút thao tác luôn nằm trọn vẹn và nổi bật ngay trên thanh dock, tương tự như thanh địa chỉ của Safari.
+        - Khi dock thu nhỏ (Auto-Hide / Minimized): Khung webview tự động mở rộng xuống đáy (`bottomConstant = -26pt`), tạo không gian tối đa cho nội dung hội thoại.
+        - Khi chế độ toàn màn hình: Khung webview mở rộng toàn bộ màn hình.
+        - Khi dock ở cạnh trái/phải: Khung webview tự động thụt lề 56pt tương ứng để không bị che bởi dock dọc.
+      - Cập nhật đồng bộ trong `viewDidLayoutSubviews()`, `applyDockLayout()`, `minimizeDock()`, `expandDock()`, `toggleFullscreen()`.
+    - **Tương thích hoàn hảo với bàn phím iOS (Keyboard Handling):**
+      - Đăng ký lắng nghe `UIResponder.keyboardWillShowNotification` và `keyboardWillHideNotification`: Khi người dùng chạm vào khung chat để gõ phím, dock tự động ẩn mượt mà để nhường 100% không gian cho bàn phím ảo và khung chat; Khi đóng bàn phím, dock tự động khôi phục trạng thái cũ.
+  - `src/App.tsx`:
+    - Bọc `KeepAliveContainer` với padding-bottom động `pb-[56px]` khi không ở chế độ toàn màn hình, đảm bảo tính đồng bộ hoàn hảo ngay cả khi chạy trên nền tảng Web preview.
+  - `src/version.ts`: Nâng cấp lên `Build 30` (`v1.0.0 (Build 30)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 30`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 9a6cdf3 --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 29 - 2026-11-16
 - **Commit:** `7874fec`
 - **GitHub Actions Run:** `#43910755282` (success)

@@ -92,11 +92,13 @@ export const App: React.FC = () => {
   return (
     <div className="relative flex flex-col h-screen w-screen overflow-hidden bg-black select-none">
       {/* Zero-Reload Keep-Alive Multi-Project Frame Engine */}
-      <KeepAliveContainer
-        workspaces={workspaces}
-        activeId={activeWorkspaceId}
-        onOpenScanner={() => setIsScannerOpen(true)}
-      />
+      <div className={`flex-1 w-full h-full transition-all duration-300 ${isFullscreen ? '' : 'pb-[56px]'}`}>
+        <KeepAliveContainer
+          workspaces={workspaces}
+          activeId={activeWorkspaceId}
+          onOpenScanner={() => setIsScannerOpen(true)}
+        />
+      </div>
 
       {/* Floating Glassmorphism Tab Switcher Dock */}
       {workspaces.length > 0 && (

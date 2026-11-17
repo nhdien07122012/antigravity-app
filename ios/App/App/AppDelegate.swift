@@ -157,6 +157,9 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
     // Container for WKWebViews
     private let containerView = UIView()
+    private var containerLeadingConstraint: NSLayoutConstraint?
+    private var containerTrailingConstraint: NSLayoutConstraint?
+    private var containerBottomConstraint: NSLayoutConstraint?
 
     // Floating Capsule Dock (Customizable: Bottom / Left / Right, Always / Auto-Hide)
     private var dockPosition: DockPosition = .bottom
@@ -228,6 +231,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
         DownloadManager.shared.onActiveCountChanged = { [weak self] count in
             DispatchQueue.main.async {
@@ -255,6 +260,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 cornerRadius: min(miniDockTabButton.bounds.width, miniDockTabButton.bounds.height) / 2
             ).cgPath
         }
+        updateContainerConstraints(animated: false)
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -411,7 +417,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         // 8. Mini Dock Expand Pill (Shown when dock is minimized in Auto-Hide mode)
         miniDockTabButton.translatesAutoresizingMaskIntoConstraints = false
         miniDockTabButton.backgroundColor = .clear
-        miniDockTabButton.layer.cornerRadius = 9
+        miniDockTabButton.layer.cornerRadius = 8
         miniDockTabButton.layer.cornerCurve = .continuous
         miniDockTabButton.clipsToBounds = false
         miniDockTabButton.layer.shadowColor = UIColor.black.cgColor
@@ -424,21 +430,24 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         view.addSubview(miniDockTabButton)
 
         miniDockEffectView.translatesAutoresizingMaskIntoConstraints = false
-        miniDockEffectView.layer.cornerRadius = 9
+        miniDockEffectView.layer.cornerRadius = 8
         miniDockEffectView.layer.cornerCurve = .continuous
         miniDockEffectView.clipsToBounds = true
         miniDockEffectView.layer.borderWidth = 0.5
         miniDockEffectView.isUserInteractionEnabled = false
         miniDockTabButton.addSubview(miniDockEffectView)
 
+        // Dynamic Container Constraints (Safari-like: leaves room for chat box)
+        containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).isActive = true
+        containerLeadingConstraint = containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor)
+        containerTrailingConstraint = containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        containerBottomConstraint = containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        containerLeadingConstraint?.isActive = true
+        containerTrailingConstraint?.isActive = true
+        containerBottomConstraint?.isActive = true
+
         // Static Layout Constraints
         NSLayoutConstraint.activate([
-            // Container fills screen starting below status bar
-            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
             // Dock effect view fills dock container
             dockEffectView.topAnchor.constraint(equalTo: dockContainerView.topAnchor),
             dockEffectView.bottomAnchor.constraint(equalTo: dockContainerView.bottomAnchor),
@@ -514,12 +523,16 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             actionStackView.axis = .horizontal
             actionStackView.alignment = .center
 
+            let safeBottom = view.safeAreaInsets.bottom
+            let hasHomeBar = safeBottom > 10
+            let bottomMargin: CGFloat = hasHomeBar ? 12 : 6
+
             dockPositionConstraints = [
                 dockContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
                 dockContainerView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
                 dockContainerView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
-                dockContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-                dockContainerView.heightAnchor.constraint(equalToConstant: 48)
+                dockContainerView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -bottomMargin),
+                dockContainerView.heightAnchor.constraint(equalToConstant: 44)
             ]
 
             dockInternalConstraints = [
@@ -538,11 +551,12 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 actionStackView.centerYAnchor.constraint(equalTo: dockContentView.centerYAnchor)
             ]
 
+            let miniBottomMargin: CGFloat = hasHomeBar ? 6 : 4
             miniDockConstraints = [
                 miniDockTabButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                miniDockTabButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -2),
-                miniDockTabButton.widthAnchor.constraint(equalToConstant: 64),
-                miniDockTabButton.heightAnchor.constraint(equalToConstant: 18)
+                miniDockTabButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -miniBottomMargin),
+                miniDockTabButton.widthAnchor.constraint(equalToConstant: 60),
+                miniDockTabButton.heightAnchor.constraint(equalToConstant: 16)
             ]
 
         case .left:
@@ -624,7 +638,16 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         NSLayoutConstraint.activate(dockInternalConstraints)
         NSLayoutConstraint.activate(miniDockConstraints)
 
+        if !isDockMinimized {
+            miniDockTabButton.alpha = 0
+            miniDockTabButton.isHidden = true
+        } else {
+            miniDockTabButton.alpha = 1
+            miniDockTabButton.isHidden = false
+        }
+
         updateMiniDockAppearance()
+        updateContainerConstraints(animated: animated)
 
         if animated {
             UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.5, options: [], animations: {
@@ -632,6 +655,57 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             }, completion: nil)
         } else {
             view.layoutIfNeeded()
+        }
+    }
+
+    // MARK: - Safari-like Dynamic Viewport Offset (Leaves room for chat box above dock)
+    private func updateContainerConstraints(animated: Bool = false) {
+        let safeBottom = view.safeAreaInsets.bottom
+        let hasHomeBar = safeBottom > 10
+        let dockBottomMargin: CGFloat = hasHomeBar ? 12 : 6
+        let dockHeight: CGFloat = 44
+
+        let leadingConstant: CGFloat
+        let trailingConstant: CGFloat
+        let bottomConstant: CGFloat
+
+        if isFullscreen {
+            leadingConstant = 0
+            trailingConstant = 0
+            bottomConstant = hasHomeBar ? -safeBottom : 0
+        } else {
+            switch dockPosition {
+            case .bottom:
+                leadingConstant = 0
+                trailingConstant = 0
+                if isDockMinimized {
+                    let miniHeight: CGFloat = 16
+                    let miniBottomMargin: CGFloat = hasHomeBar ? 6 : 4
+                    bottomConstant = -(miniHeight + miniBottomMargin + 4)
+                } else {
+                    bottomConstant = -(dockHeight + dockBottomMargin + 6)
+                }
+            case .left:
+                leadingConstant = 56
+                trailingConstant = 0
+                bottomConstant = hasHomeBar ? -safeBottom : 0
+            case .right:
+                leadingConstant = 0
+                trailingConstant = -56
+                bottomConstant = hasHomeBar ? -safeBottom : 0
+            }
+        }
+
+        containerLeadingConstraint?.constant = leadingConstant
+        containerTrailingConstraint?.constant = trailingConstant
+        containerBottomConstraint?.constant = bottomConstant
+
+        if animated {
+            UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.5, options: [], animations: {
+                self.view.layoutIfNeeded()
+            }, completion: nil)
+        } else {
+            self.view.layoutIfNeeded()
         }
     }
 
@@ -687,6 +761,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             self.dockContainerView.transform = translation
             self.dockContainerView.alpha = 0
             self.miniDockTabButton.alpha = 1
+            self.updateContainerConstraints(animated: false)
             self.updateWebViewInsets()
         }
 
@@ -705,6 +780,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             self.dockContainerView.transform = .identity
             self.dockContainerView.alpha = 1
             self.miniDockTabButton.alpha = 0
+            self.updateContainerConstraints(animated: false)
             self.updateWebViewInsets()
         }
 
@@ -728,14 +804,27 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         expandDock(animated: true)
     }
 
-    private func updateWebViewInsets() {
-        let bottomInset: CGFloat = (dockPosition == .bottom && !isFullscreen && !isDockMinimized) ? 64 : 12
-        let leftInset: CGFloat = (dockPosition == .left && !isFullscreen && !isDockMinimized) ? 58 : 0
-        let rightInset: CGFloat = (dockPosition == .right && !isFullscreen && !isDockMinimized) ? 58 : 0
+    // MARK: - Keyboard Handling (Safari-like behavior)
+    @objc private func handleKeyboardWillShow(_ notification: Notification) {
+        guard !isFullscreen else { return }
+        UIView.animate(withDuration: 0.25) {
+            self.dockContainerView.alpha = 0
+            self.miniDockTabButton.alpha = 0
+        }
+    }
 
+    @objc private func handleKeyboardWillHide(_ notification: Notification) {
+        guard !isFullscreen else { return }
+        UIView.animate(withDuration: 0.25) {
+            self.dockContainerView.alpha = self.isDockMinimized ? 0 : 1
+            self.miniDockTabButton.alpha = self.isDockMinimized ? 1 : 0
+        }
+    }
+
+    private func updateWebViewInsets() {
         for (_, wv) in webViews {
-            wv.scrollView.contentInset = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
-            wv.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
+            wv.scrollView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
+            wv.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
         }
     }
 
@@ -898,11 +987,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        let bottomInset: CGFloat = (dockPosition == .bottom && !isFullscreen && !isDockMinimized) ? 64 : 12
-        let leftInset: CGFloat = (dockPosition == .left && !isFullscreen && !isDockMinimized) ? 58 : 0
-        let rightInset: CGFloat = (dockPosition == .right && !isFullscreen && !isDockMinimized) ? 58 : 0
-        webView.scrollView.contentInset = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
-        webView.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: leftInset, bottom: bottomInset, right: rightInset)
+        webView.scrollView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
+        webView.scrollView.scrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
         webView.backgroundColor = .systemBackground
 
         containerView.addSubview(webView)
@@ -1029,6 +1115,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             } else if self.isDockMinimized {
                 self.miniDockTabButton.alpha = 1
             }
+            self.updateContainerConstraints(animated: false)
         }
         updateWebViewInsets()
     }
