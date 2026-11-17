@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 33 - 2026-11-17
-- **Commit:** `535e09a`
-- **GitHub Actions Run:** `PENDING_RUN`
+- **Commit:** `1541565`
+- **GitHub Actions Run:** `#44107500754` (success)
 - **Mục tiêu thay đổi tóm tắt:** Thay thế nút `+` (Quét mã QR) trên thanh Dock thành nút Home (Trang Chủ) để quay trở lại trang ban đầu khi mới vào ứng dụng (giao diện danh sách dự án, cuộc hội thoại ghim và khung chat ban đầu); Đồng thời di dời tính năng Quét mã QR kết nối dự án mới vào bên trong menu Cài Đặt (Settings) theo đúng nhu cầu sử dụng của người dùng.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -40,7 +40,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 33`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert 535e09a --no-edit
+  git revert 1541565 --no-edit
   ```
 
 ---
