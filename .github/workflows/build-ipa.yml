@@ -2,11 +2,11 @@ name: Build Antigravity iOS IPA (Sideload)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
   workflow_dispatch:
 
 concurrency:
-  group: build-ios-ipa
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-ipa:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout Source Code
