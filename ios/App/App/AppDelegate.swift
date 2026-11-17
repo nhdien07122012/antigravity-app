@@ -688,13 +688,13 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     bottomConstant = -(dockBottomMargin + dockHeight + spacingAboveDock) // -54pt from safeAreaLayoutGuide.bottom
                 }
             case .left:
-                leadingConstant = 56
+                leadingConstant = isDockMinimized ? 0 : 56
                 trailingConstant = 0
-                bottomConstant = -4
+                bottomConstant = 0
             case .right:
                 leadingConstant = 0
-                trailingConstant = -56
-                bottomConstant = -4
+                trailingConstant = isDockMinimized ? 0 : -56
+                bottomConstant = 0
             }
         }
 

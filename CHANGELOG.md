@@ -4,6 +4,27 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 32 - 2026-11-17
+- **Commit:** `c282a1f`
+- **GitHub Actions Run:** `Đang thực thi (CI in progress)`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi giao diện không tự phóng to vừa khung màn hình khi thanh dock được tự động ẩn ở cạnh trái hoặc cạnh phải; Khi dock thu nhỏ về hai cạnh bên, toàn bộ khung hiển thị webview và chat box tự động mở rộng 100% toàn bộ chiều ngang màn hình (loại bỏ hoàn toàn khoảng đen thụt lề 56pt), mang lại trải nghiệm xem tràn viền hoàn hảo như khi ẩn ở cạnh đáy.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Tự động phóng to toàn màn hình khi dock ẩn ở cạnh Trái/Phải (Dynamic Width Recovery):**
+      - Cập nhật hàm `updateContainerConstraints(animated:)`:
+        - Khi dock ở cạnh Trái (`.left`): Nếu dock thu nhỏ (`isDockMinimized == true`), `leadingConstant` tự động chuyển về `0` (thay vì cố định 56pt), cho phép webview mở rộng tràn sang sát mép trái màn hình; Khi dock mở lại, thụt lề 56pt để tránh che khuất nội dung.
+        - Khi dock ở cạnh Phải (`.right`): Nếu dock thu nhỏ (`isDockMinimized == true`), `trailingConstant` tự động chuyển về `0` (thay vì cố định -56pt), cho phép webview mở rộng tràn sang sát mép phải màn hình; Khi dock mở lại, thụt lề -56pt tương ứng.
+        - `bottomConstant` khi dock ở cạnh trái/phải luôn giữ ở `0` (sát đường an toàn của Home Indicator), tạo khung hiển thị vuông vắn, rộng rãi nhất.
+      - Hiệu ứng chuyển đổi giữa thu nhỏ và mở rộng được thực hiện mượt mà bằng lò xo `UIView.animate` với damping 0.85.
+  - `src/version.ts`: Nâng cấp lên `Build 32` (`v1.0.0 (Build 32)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 32`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert c282a1f --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 31 - 2026-11-17
 - **Commit:** `a6f8b21`
 - **GitHub Actions Run:** `#43998309512` (success)
