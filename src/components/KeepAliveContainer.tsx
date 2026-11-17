@@ -6,12 +6,14 @@ interface KeepAliveContainerProps {
   workspaces: RemoteWorkspace[];
   activeId: string;
   onOpenScanner: () => void;
+  resetKey?: number;
 }
 
 export const KeepAliveContainer: React.FC<KeepAliveContainerProps> = ({
   workspaces,
   activeId,
   onOpenScanner,
+  resetKey = 0,
 }) => {
   const [iframeKeyMap, setIframeKeyMap] = useState<Record<string, number>>({});
 
@@ -56,7 +58,7 @@ export const KeepAliveContainer: React.FC<KeepAliveContainerProps> = ({
           >
             {/* The Persistent Keep-Alive Webview Frame */}
             <iframe
-              key={`${ws.id}_${reloadKey}`}
+              key={`${ws.id}_${reloadKey}_${resetKey}`}
               src={ws.url}
               title={ws.name}
               allow="camera; microphone; clipboard-read; clipboard-write; display-capture; autoplay; full-screen"

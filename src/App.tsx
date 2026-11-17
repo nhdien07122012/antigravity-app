@@ -18,6 +18,7 @@ export const App: React.FC = () => {
   const [isIpaManagerOpen, setIsIpaManagerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [homeResetKeys, setHomeResetKeys] = useState<Record<string, number>>({});
 
   // Load saved workspaces and settings on app start
   useEffect(() => {
@@ -76,6 +77,24 @@ export const App: React.FC = () => {
     setWorkspaces(updated);
   };
 
+  const handleGoHome = () => {
+    if ((window as any).webkit?.messageHandlers?.antigravityNative) {
+      try {
+        (window as any).webkit.messageHandlers.antigravityNative.postMessage('goHome');
+        return;
+      } catch (e) {}
+    }
+    if (activeWorkspaceId) {
+      setHomeResetKeys((prev) => ({
+        ...prev,
+        [activeWorkspaceId]: (prev[activeWorkspaceId] || 0) + 1,
+      }));
+    }
+    try {
+      Haptics.impact({ style: ImpactStyle.Light });
+    } catch {}
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-950 text-white">
@@ -97,6 +116,7 @@ export const App: React.FC = () => {
           workspaces={workspaces}
           activeId={activeWorkspaceId}
           onOpenScanner={() => setIsScannerOpen(true)}
+          resetKey={homeResetKeys[activeWorkspaceId] || 0}
         />
       </div>
 
@@ -106,7 +126,7 @@ export const App: React.FC = () => {
           workspaces={workspaces}
           activeId={activeWorkspaceId}
           onSelectWorkspace={handleSelectWorkspace}
-          onOpenScanner={() => setIsScannerOpen(true)}
+          onGoHome={handleGoHome}
           onOpenManageWorkspaces={() => setIsManageOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenIpaManager={() => setIsIpaManagerOpen(true)}

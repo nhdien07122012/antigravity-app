@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeftIcon,
-  PlusIcon,
+  HomeIcon,
   Squares2X2Icon,
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
@@ -20,7 +20,7 @@ interface FloatingDockProps {
   workspaces: RemoteWorkspace[];
   activeId: string;
   onSelectWorkspace: (id: string) => void;
-  onOpenScanner: () => void;
+  onGoHome?: () => void;
   onOpenManageWorkspaces: () => void;
   onOpenSettings: () => void;
   onOpenIpaManager?: () => void;
@@ -33,7 +33,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   workspaces,
   activeId,
   onSelectWorkspace,
-  onOpenScanner,
+  onGoHome,
   onOpenManageWorkspaces,
   onOpenSettings,
   onOpenIpaManager,
@@ -198,14 +198,14 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
             <ArrowLeftIcon className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
-          {/* Add Project via QR */}
+          {/* Home Button: Navigate back to initial workspace landing page */}
           <button
-            onClick={onOpenScanner}
-            title="Quét thêm mã QR Dự án mới"
+            onClick={onGoHome}
+            title="Trang chủ dự án ban đầu"
             className="flex items-center gap-0.5 px-2 py-1 bg-blue-50 dark:bg-blue-500/25 hover:bg-blue-100 dark:hover:bg-blue-500/35 text-blue-600 dark:text-blue-300 rounded-full text-xs font-bold border border-blue-200 dark:border-blue-400/30 transition active:scale-95"
           >
-            <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden sm:inline">Thêm</span>
+            <HomeIcon className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span className="hidden sm:inline">Trang Chủ</span>
           </button>
 
           {/* Zoom / Font Size Adjuster */}

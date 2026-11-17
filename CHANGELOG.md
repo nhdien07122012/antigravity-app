@@ -4,6 +4,47 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 33 - 2026-11-17
+- **Commit:** `535e09a`
+- **GitHub Actions Run:** `PENDING_RUN`
+- **Mục tiêu thay đổi tóm tắt:** Thay thế nút `+` (Quét mã QR) trên thanh Dock thành nút Home (Trang Chủ) để quay trở lại trang ban đầu khi mới vào ứng dụng (giao diện danh sách dự án, cuộc hội thoại ghim và khung chat ban đầu); Đồng thời di dời tính năng Quét mã QR kết nối dự án mới vào bên trong menu Cài Đặt (Settings) theo đúng nhu cầu sử dụng của người dùng.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Nút Home trên thanh Dock (Native iOS):**
+      - Thay thế `addButton` thành `homeButton` trên thanh dock nổi; sử dụng biểu tượng phẳng SF Symbols `house` với nền mềm xanh dương tinh tế.
+      - Thiết lập kích thước 30x30pt, bo góc mượt mà 15pt chuẩn capsule Apple.
+      - Xây dựng hàm điều hướng `handleGoHome()`: Khi người dùng bấm nút Home, ứng dụng phát phản hồi xúc giác nhẹ (`UIImpactFeedbackGenerator`), gia hạn hẹn giờ tự ẩn dock nếu đang ở chế độ autohide, và điều hướng WKWebView quay về trang chủ ban đầu của dự án (`ws.url` / `https://antigravity.google.com`). Áp dụng kỹ thuật điều hướng mượt qua JavaScript SPA `window.location.href` kèm fallback `load(URLRequest)` đảm bảo 100% trở về trang ban đầu.
+    - **Di dời tính năng Quét mã QR vào Cài Đặt (Settings Menu):**
+      - Mở rộng giao thức `ModernSettingsMenuDelegate` thêm hàm `menuDidRequestQRScanner()`.
+      - Kết nối sự kiện mở trình quét mã QR camera từ menu cài đặt (`MainViewController` gọi `handleAddWorkspace()`).
+      - Tại `ModernSettingsMenuViewController`:
+        - Trong khối **THAO TÁC NHANH** (Quick Actions): Thêm card "Quét QR" với biểu tượng `qrcode.viewfinder`, màu tím pastel phẳng hiện đại.
+        - Trong khối **TAB HIỆN TẠI** (Workspace Actions): Bổ sung thêm một hàng nút bấm trực quan "Quét Mã QR Thêm Dự Án Mới" với chevron điều hướng sang camera quét mã.
+      - Cập nhật số hiệu bản dựng trong phần header menu cài đặt lên `v1.0.0 (Build 33)`.
+    - **Xử lý thông điệp native WKScriptMessageHandler:**
+      - Bổ sung lệnh nhận diện `goHome` qua `antigravityNative` cho cả hai kiểu dữ liệu (chuỗi String và từ điển Dictionary) để kích hoạt `handleGoHome()`.
+  - `src/components/FloatingDock.tsx`:
+    - Chuyển đổi nút thêm dự án thành nút Home: thay thế `PlusIcon` bằng `HomeIcon` (`@heroicons/react/24/outline`).
+    - Thay thế thuộc tính `onOpenScanner` thành `onGoHome`.
+    - Đặt tiêu đề hiển thị: "Trang chủ dự án ban đầu" và nhãn "Trang Chủ".
+  - `src/App.tsx`:
+    - Quản lý trạng thái `homeResetKeys` cho từng workspace để kích hoạt làm mới khung frame về URL gốc khi bấm Home.
+    - Xây dựng hàm `handleGoHome`: gửi tin nhắn `goHome` qua cầu nối Native WKScriptMessage nếu đang chạy iOS app, đồng thời cập nhật `homeResetKeys` để reset iframe về `ws.url` và rung phản hồi haptic.
+    - Truyền `onGoHome={handleGoHome}` vào `FloatingDock` và `resetKey` vào `KeepAliveContainer`.
+  - `src/components/KeepAliveContainer.tsx`:
+    - Bổ sung thuộc tính `resetKey?: number` để làm mới key của iframe khi người dùng yêu cầu quay về trang chủ ban đầu.
+  - `src/components/SettingsModal.tsx`:
+    - Củng cố nút "Quét QR" trong khối Thao Tác Nhanh (`QrCodeIcon`).
+    - Bổ sung thêm thẻ chuyên biệt "Quét Mã QR Thêm Dự Án" với nút bấm "Mở Quét QR" màu tím tím pastel phẳng, kết nối trực tiếp đến camera quét mã.
+  - `src/version.ts`: Tự động nâng cấp lên `Build 33` (`v1.0.0 (Build 33)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 33`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert 535e09a --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 32 - 2026-11-17
 - **Commit:** `ab5824f`
 - **GitHub Actions Run:** `#44096588586` (success)

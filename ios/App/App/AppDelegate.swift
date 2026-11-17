@@ -184,7 +184,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private let dockStackView = UIStackView()
     private let actionStackView = UIStackView()
     private let backButton = UIButton(type: .system)
-    private let addButton = UIButton(type: .system)
+    private let homeButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
     private let ipaButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
@@ -296,8 +296,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
         let tintColor: UIColor = isDark ? .white : .label
         backButton.tintColor = tintColor.withAlphaComponent(0.85)
-        addButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
-        addButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
+        homeButton.tintColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: 1.0)
+        homeButton.backgroundColor = UIColor(red: 0.15, green: 0.45, blue: 1.0, alpha: isDark ? 0.22 : 0.12)
         reloadButton.tintColor = tintColor.withAlphaComponent(0.85)
         ipaButton.tintColor = tintColor.withAlphaComponent(0.85)
         settingsButton.tintColor = tintColor.withAlphaComponent(0.85)
@@ -358,14 +358,14 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         let longPressBack = UILongPressGestureRecognizer(target: self, action: #selector(handleBackLongPressed(_:)))
         backButton.addGestureRecognizer(longPressBack)
 
-        setupActionButton(addButton, iconName: "plus", action: #selector(handleAddWorkspace))
+        setupActionButton(homeButton, iconName: "house", action: #selector(handleGoHome))
         setupActionButton(reloadButton, iconName: "arrow.clockwise", action: #selector(handleReloadActiveTab))
         setupActionButton(ipaButton, iconName: "arrow.down.circle", action: #selector(handleIpaManagerTapped))
         setupActionButton(settingsButton, iconName: "gearshape", action: #selector(handleSettingsTapped))
         setupActionButton(fullscreenButton, iconName: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullscreen))
 
         actionStackView.addArrangedSubview(backButton)
-        actionStackView.addArrangedSubview(addButton)
+        actionStackView.addArrangedSubview(homeButton)
         actionStackView.addArrangedSubview(reloadButton)
         actionStackView.addArrangedSubview(ipaButton)
         actionStackView.addArrangedSubview(settingsButton)
@@ -465,8 +465,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             // Action button sizes
             backButton.widthAnchor.constraint(equalToConstant: 30),
             backButton.heightAnchor.constraint(equalToConstant: 30),
-            addButton.widthAnchor.constraint(equalToConstant: 30),
-            addButton.heightAnchor.constraint(equalToConstant: 30),
+            homeButton.widthAnchor.constraint(equalToConstant: 30),
+            homeButton.heightAnchor.constraint(equalToConstant: 30),
             reloadButton.widthAnchor.constraint(equalToConstant: 30),
             reloadButton.heightAnchor.constraint(equalToConstant: 30),
             ipaButton.widthAnchor.constraint(equalToConstant: 30),
@@ -1367,6 +1367,39 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         present(scanner, animated: true)
     }
 
+    @objc private func handleGoHome() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if dockDisplayMode == .autohide {
+            scheduleDockAutoHide()
+        }
+        guard let ws = workspaces.first(where: { $0.id == activeWorkspaceId }),
+              let wv = webViews[activeWorkspaceId] else { return }
+
+        let cleanUrl = ws.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let targetUrl = URL(string: cleanUrl) ?? URL(string: cleanUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
+            let targetStr = targetUrl.absoluteString
+            let js = """
+            (function() {
+                try {
+                    if (window.location.href === '\(targetStr)' || window.location.pathname === '/' || window.location.pathname === '') {
+                        window.location.reload();
+                    } else {
+                        window.location.href = '\(targetStr)';
+                    }
+                } catch(e) {
+                    window.location.href = '\(targetStr)';
+                }
+            })();
+            """
+            wv.evaluateJavaScript(js) { [weak wv] _, error in
+                if error != nil {
+                    let req = URLRequest(url: targetUrl)
+                    wv?.load(req)
+                }
+            }
+        }
+    }
+
     @objc private func handleReloadActiveTab() {
         if let active = webViews[activeWorkspaceId] {
             active.reload()
@@ -1556,6 +1589,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                     DispatchQueue.main.async {
                         self.handleSettingsTapped()
                     }
+                } else if action == "goHome" {
+                    DispatchQueue.main.async {
+                        self.handleGoHome()
+                    }
                 } else if action == "setDockPosition", let posStr = body["position"] as? String, let pos = DockPosition(rawValue: posStr) {
                     DispatchQueue.main.async {
                         self.setDockPosition(pos, animated: true)
@@ -1571,6 +1608,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 } else if action == "goBack" {
                     DispatchQueue.main.async {
                         self.handleGoBack()
+                    }
+                } else if action == "goHome" {
+                    DispatchQueue.main.async {
+                        self.handleGoHome()
                     }
                 } else if action == "openSettings" {
                     DispatchQueue.main.async {
@@ -2890,10 +2931,14 @@ protocol ModernSettingsMenuDelegate: AnyObject {
     func menuDidRequestClearCache()
     func menuDidChangeDockPosition(_ position: DockPosition)
     func menuDidChangeDockDisplayMode(_ mode: DockDisplayMode)
+    func menuDidRequestQRScanner()
 }
 
 // MARK: - MainViewController Extension for Modern Settings Menu
 extension MainViewController: ModernSettingsMenuDelegate {
+    func menuDidRequestQRScanner() {
+        handleAddWorkspace()
+    }
     func menuDidRequestGoBack() {
         handleGoBack()
     }
@@ -2995,7 +3040,7 @@ class ModernSettingsMenuViewController: UIViewController {
         titleStack.addArrangedSubview(titleLabel)
 
         let subtitleLabel = UILabel()
-        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 28)"
+        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 33)"
         subtitleLabel.font = .systemFont(ofSize: 12, weight: .medium)
         subtitleLabel.textColor = .secondaryLabel
         titleStack.addArrangedSubview(subtitleLabel)
@@ -3099,18 +3144,18 @@ class ModernSettingsMenuViewController: UIViewController {
             tintColor: .systemGreen,
             action: #selector(quickDownloadTapped)
         )
-        let fullscreenCard = createQuickActionCard(
-            title: "Toàn Màn",
-            iconName: "arrow.up.left.and.arrow.down.right",
-            bgColor: UIColor.systemGray.withAlphaComponent(0.12),
-            tintColor: .label,
-            action: #selector(quickFullscreenTapped)
+        let qrScanCard = createQuickActionCard(
+            title: "Quét QR",
+            iconName: "qrcode.viewfinder",
+            bgColor: UIColor.systemPurple.withAlphaComponent(0.12),
+            tintColor: .systemPurple,
+            action: #selector(quickQRScanTapped)
         )
 
         gridStack.addArrangedSubview(backCard)
         gridStack.addArrangedSubview(reloadCard)
         gridStack.addArrangedSubview(downloadCard)
-        gridStack.addArrangedSubview(fullscreenCard)
+        gridStack.addArrangedSubview(qrScanCard)
 
         contentStack.addArrangedSubview(gridStack)
     }
@@ -3185,6 +3230,13 @@ class ModernSettingsMenuViewController: UIViewController {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         dismiss(animated: true) { [weak self] in
             self?.delegate?.menuDidRequestIpaManager()
+        }
+    }
+
+    @objc private func quickQRScanTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestQRScanner()
         }
     }
 
@@ -3613,6 +3665,17 @@ class ModernSettingsMenuViewController: UIViewController {
         cardStack.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(cardStack)
 
+        // Row: Scan QR
+        let scanQrRow = createRowButton(
+            iconName: "qrcode.viewfinder",
+            title: "Quét Mã QR Thêm Dự Án Mới",
+            badgeBgColor: UIColor.systemPurple.withAlphaComponent(0.12),
+            badgeTintColor: .systemPurple,
+            action: #selector(handleScanQrTapped)
+        )
+        cardStack.addArrangedSubview(scanQrRow)
+        cardStack.addArrangedSubview(createDivider())
+
         // Row: Rename
         let renameRow = createRowButton(
             iconName: "pencil",
@@ -3667,6 +3730,12 @@ class ModernSettingsMenuViewController: UIViewController {
         ])
 
         contentStack.addArrangedSubview(card)
+    }
+
+    @objc private func handleScanQrTapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.delegate?.menuDidRequestQRScanner()
+        }
     }
 
     @objc private func handleRenameTapped() {

@@ -445,6 +445,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
+          {/* Section: Scan QR Code */}
+          <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-900/40 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <QrCodeIcon className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-900 dark:text-white">Quét Mã QR Thêm Dự Án</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Kết nối máy tính qua camera hoặc dán liên kết</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onOpenScanner) onOpenScanner();
+              }}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-500/25 transition active:scale-95 shrink-0"
+            >
+              Mở Quét QR
+            </button>
+          </div>
+
           {/* Section 4: Operational Settings */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider block">
