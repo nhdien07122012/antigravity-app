@@ -209,6 +209,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
     private var lastBackgroundDate = Date()
 
+    // Notification Anti-False-Positive Guard & Cooldown
+    private var suppressNotificationUntil = Date().addingTimeInterval(6.5)
+    private var lastNotificationFiredAt = Date.distantPast
+
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
     }
@@ -890,84 +894,347 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
             if (window.__agCompletionWatcherActive) return;
             window.__agCompletionWatcherActive = true;
 
+            const SETTLE_INITIAL_MS = 5500;
+            const SETTLE_ROUTE_MS = 3500;
+            const MIN_BUSY_MS = 2000;
+            const IDLE_CONFIRM_MS = 2800;
+            const NOTIFY_COOLDOWN_MS = 8000;
+
+            let settleUntil = Date.now() + SETTLE_INITIAL_MS;
             let isBusy = false;
+            let hadExplicitBusyUI = false;
             let busyStartTime = 0;
+            let busyUrl = location.href;
+            let busyStartTextLen = 0;
+            let idleSince = 0;
+            let lastHref = location.href;
+            let lastNotifiedAt = 0;
+            let userSentAt = 0;
+            let lastContentMutationAt = 0;
+            let addedCharsSinceUserSend = 0;
             let lastTitle = '';
+
+            function resetState(reason, extraSettleMs) {
+                isBusy = false;
+                hadExplicitBusyUI = false;
+                busyStartTime = 0;
+                idleSince = 0;
+                addedCharsSinceUserSend = 0;
+                const ms = typeof extraSettleMs === 'number' ? extraSettleMs : SETTLE_ROUTE_MS;
+                settleUntil = Math.max(settleUntil, Date.now() + ms);
+            }
+
+            window.__agResetWatcher = function(reason) {
+                resetState(reason || 'native', SETTLE_INITIAL_MS);
+            };
+
+            function onRouteChange() {
+                if (location.href !== lastHref) {
+                    lastHref = location.href;
+                    resetState('route', SETTLE_ROUTE_MS);
+                }
+            }
+
+            try {
+                const origPushState = history.pushState;
+                history.pushState = function() {
+                    const ret = origPushState.apply(this, arguments);
+                    onRouteChange();
+                    return ret;
+                };
+                const origReplaceState = history.replaceState;
+                history.replaceState = function() {
+                    const ret = origReplaceState.apply(this, arguments);
+                    onRouteChange();
+                    return ret;
+                };
+                window.addEventListener('popstate', onRouteChange);
+            } catch(e) {}
+
+            function markUserSent() {
+                userSentAt = Date.now();
+                addedCharsSinceUserSend = 0;
+                lastContentMutationAt = 0;
+            }
+
+            function isStopButtonElement(btn) {
+                if (!btn) return false;
+                const aria = (btn.getAttribute('aria-label') || '').trim();
+                const title = (btn.getAttribute('title') || '').trim();
+                const testId = (btn.getAttribute('data-testid') || '').trim();
+                const combined = aria + ' ' + title + ' ' + testId;
+                if (/\\b(stop|cancel|abort|interrupt|dừng)\\b/i.test(combined) && !/\\b(close|dismiss|dialog|modal|audio|video|record|mic|voice)\\b/i.test(combined)) {
+                    return true;
+                }
+                const vh = window.innerHeight || 800;
+                const rect = btn.getBoundingClientRect();
+                if (rect.top >= vh - 220 && rect.width >= 20 && rect.width <= 56 && rect.height >= 20 && rect.height <= 56) {
+                    const svg = btn.querySelector('svg');
+                    if (svg && svg.querySelector('rect') && !svg.querySelector('path')) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                    const target = e.target;
+                    if (target && (target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                        const txt = (target.value || target.innerText || '').trim();
+                        if (txt.length > 0) {
+                            markUserSent();
+                        }
+                    }
+                }
+            }, true);
+
+            document.addEventListener('click', function(e) {
+                const btn = e.target && e.target.closest ? e.target.closest('button, [role="button"]') : null;
+                if (!btn) return;
+                if (isStopButtonElement(btn)) {
+                    resetState('user-stopped', 2500);
+                    return;
+                }
+                const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.getAttribute('title') || '')).toLowerCase();
+                const rect = btn.getBoundingClientRect();
+                const isNearBottomComposer = rect.bottom >= (window.innerHeight || 800) - 240;
+                if (/\\b(send|submit|gửi)\\b/i.test(label) || (btn.type === 'submit' && isNearBottomComposer)) {
+                    markUserSent();
+                }
+            }, true);
+
+            function isElementVisible(el) {
+                if (!el || !el.isConnected) return false;
+                const rect = el.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return false;
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0.05;
+            }
 
             function detectProjectName() {
                 try {
-                    // Check project name header or folder label
-                    const projectFolder = document.querySelector('.project-name, [data-project-name], [data-project], [aria-label*="project" i]');
-                    if (projectFolder && projectFolder.textContent.trim()) {
-                        return projectFolder.textContent.trim();
-                    }
-                    const candidates = document.querySelectorAll('span, div, p');
-                    for (const el of candidates) {
-                        const t = el.textContent.trim();
-                        if (/^(?:antigravity-app|LANMonitor|Cloud-Photos|cleanyourtv|gas|Insta-Downloader|worse_query|vnpost-auto-extension|diennguyen)$/i.test(t)) {
-                            return t;
+                    const selectors = [
+                        '[data-project-name]',
+                        '[data-project]',
+                        '.project-name'
+                    ];
+                    for (let i = 0; i < selectors.length; i++) {
+                        const el = document.querySelector(selectors[i]);
+                        if (el && isElementVisible(el)) {
+                            const txt = (el.getAttribute('data-project-name') || el.getAttribute('data-project') || el.innerText || '').trim();
+                            if (txt && txt.length >= 2 && txt.length <= 45) {
+                                return txt.split('\\n')[0].trim();
+                            }
                         }
                     }
                 } catch(e) {}
                 return '';
             }
 
-            function detectBusyState() {
-                const text = document.body ? document.body.innerText : '';
-                const hasRunningText = /\\b\\d+\\s+tasks?\\s+running\\b/i.test(text) ||
-                                       /\\b(thinking|generating response|executing|working\\.\\.\\.)\\b/i.test(text);
-
-                const stopBtn = document.querySelector('button[aria-label*="Stop" i], button[title*="Stop" i], button[aria-label*="Dừng" i], button[data-testid*="stop" i]');
-                const hasBusyAttr = !!document.querySelector('[aria-busy="true"], [role="progressbar"]');
-
-                return hasRunningText || !!stopBtn || hasBusyAttr;
+            function postFinished(titleText) {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.antigravityNative) {
+                    window.webkit.messageHandlers.antigravityNative.postMessage({
+                        action: 'conversationFinished',
+                        projectName: detectProjectName(),
+                        title: titleText || lastTitle || document.title || 'Hội thoại Antigravity'
+                    });
+                }
             }
 
+            // Bridge Web Notification API if web app fires its own completion notification
+            try {
+                const NativeNotification = window.Notification;
+                function BridgedNotification(title, options) {
+                    try {
+                        const now = Date.now();
+                        if (now >= settleUntil && (now - lastNotifiedAt) >= NOTIFY_COOLDOWN_MS) {
+                            lastNotifiedAt = now;
+                            postFinished(title || lastTitle || document.title);
+                        }
+                    } catch(e) {}
+                    if (NativeNotification) {
+                        try { return new NativeNotification(title, options); } catch(e) {}
+                    }
+                }
+                BridgedNotification.permission = 'granted';
+                BridgedNotification.requestPermission = function(cb) {
+                    if (typeof cb === 'function') cb('granted');
+                    return Promise.resolve('granted');
+                };
+                window.Notification = BridgedNotification;
+            } catch(e) {}
+
+            function getMainContentLength() {
+                const main = document.querySelector('main, [role="main"]') || document.body;
+                return main && main.innerText ? main.innerText.length : 0;
+            }
+
+            function detectActiveStopButton() {
+                const buttons = document.querySelectorAll('button, [role="button"]');
+                for (let i = 0; i < buttons.length; i++) {
+                    const btn = buttons[i];
+                    if (btn.disabled || !isElementVisible(btn)) continue;
+                    if (isStopButtonElement(btn)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function detectLiveRunningIndicator() {
+                const vh = window.innerHeight || 800;
+                const candidates = document.querySelectorAll('[role="status"], [aria-live], [data-state="running"], [data-status="running"], [aria-busy="true"]');
+                for (let i = 0; i < candidates.length; i++) {
+                    const el = candidates[i];
+                    if (!isElementVisible(el)) continue;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.height > vh * 0.65) continue;
+
+                    if (el.getAttribute('data-state') === 'running' || el.getAttribute('data-status') === 'running') {
+                        return true;
+                    }
+                    const t = (el.innerText || '').trim();
+                    if (t.length > 0 && t.length <= 65) {
+                        if (/^\\d+\\s+tasks?\\s+running$/i.test(t) ||
+                            /^(thinking|generating|working|running|executing|searching|analyzing|planning|streaming)(\\.{0,3}|…)$/i.test(t)) {
+                            return true;
+                        }
+                    }
+                }
+
+                const smallEls = document.querySelectorAll('span, p, div');
+                const limit = Math.min(smallEls.length, 450);
+                for (let i = 0; i < limit; i++) {
+                    const el = smallEls[i];
+                    if (el.childElementCount > 1) continue;
+                    const t = (el.textContent || '').trim();
+                    if (t.length < 5 || t.length > 50) continue;
+                    if (/^\\d+\\s+tasks?\\s+running$/i.test(t) ||
+                        /^(generating response|thinking\\.\\.\\.|working\\.\\.\\.|executing\\.\\.\\.)/i.test(t)) {
+                        if (isElementVisible(el)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            const observer = new MutationObserver(function(mutations) {
+                const now = Date.now();
+                if (now < settleUntil) return;
+                if (location.href !== lastHref) {
+                    onRouteChange();
+                    return;
+                }
+                const recentlySent = userSentAt > 0 && (now - userSentAt) <= 600000;
+                if (!isBusy && !recentlySent) return;
+
+                let deltaChars = 0;
+                for (let i = 0; i < mutations.length; i++) {
+                    const m = mutations[i];
+                    const target = m.target;
+                    const el = target && target.nodeType === 1 ? target : (target ? target.parentElement : null);
+                    if (!el) continue;
+                    if (el.closest && el.closest('textarea, input, [contenteditable="true"], header, nav')) continue;
+
+                    if (m.type === 'characterData') {
+                        deltaChars += Math.abs((target.nodeValue || '').length);
+                    } else if (m.type === 'childList' && m.addedNodes && m.addedNodes.length > 0) {
+                        for (let j = 0; j < m.addedNodes.length; j++) {
+                            const node = m.addedNodes[j];
+                            const txt = (node.textContent || '').trim();
+                            if (txt.length > 0) deltaChars += txt.length;
+                        }
+                    }
+                }
+
+                if (deltaChars >= 8) {
+                    lastContentMutationAt = now;
+                    if (recentlySent) {
+                        addedCharsSinceUserSend += deltaChars;
+                    }
+                }
+            });
+
+            function startObserver() {
+                if (document.body) {
+                    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+                } else {
+                    setTimeout(startObserver, 300);
+                }
+            }
+            startObserver();
+
             function check() {
-                const currentlyBusy = detectBusyState();
+                onRouteChange();
+                const now = Date.now();
+                const userJustSent = userSentAt > 0 && (now - userSentAt) < 15000;
+
+                if (now < settleUntil && !userJustSent) {
+                    isBusy = false;
+                    hadExplicitBusyUI = false;
+                    idleSince = 0;
+                    return;
+                }
+
+                const explicitBusy = detectActiveStopButton() || detectLiveRunningIndicator();
+                const recentlySent = userSentAt > 0 && (now - userSentAt) <= 600000;
+                const activelyStreaming = recentlySent && addedCharsSinceUserSend >= 25 && lastContentMutationAt > 0 && (now - lastContentMutationAt) < 2200;
+                const currentlyBusy = explicitBusy || activelyStreaming;
 
                 if (currentlyBusy) {
+                    idleSince = 0;
+                    if (explicitBusy) {
+                        hadExplicitBusyUI = true;
+                    }
                     if (!isBusy) {
                         isBusy = true;
-                        busyStartTime = Date.now();
+                        busyStartTime = now;
+                        busyUrl = location.href;
+                        busyStartTextLen = getMainContentLength();
                         const h = document.querySelector('h1, h2, [role="heading"], .conversation-title');
                         lastTitle = h ? h.textContent.trim() : document.title;
                     }
-                } else {
-                    if (isBusy) {
-                        const elapsed = Date.now() - busyStartTime;
+                } else if (isBusy) {
+                    if (location.href !== busyUrl) {
+                        resetState('navigated-away', SETTLE_ROUTE_MS);
+                        return;
+                    }
+
+                    if (idleSince === 0) {
+                        idleSince = now;
+                        return;
+                    }
+
+                    const idleDuration = now - idleSince;
+                    const mutationQuiet = (lastContentMutationAt === 0) || ((now - lastContentMutationAt) >= 2200);
+
+                    if (idleDuration >= IDLE_CONFIRM_MS && mutationQuiet) {
+                        const busyDuration = idleSince - busyStartTime;
+                        const currentLen = getMainContentLength();
+                        const contentChanged = Math.abs(currentLen - busyStartTextLen) >= 15 || addedCharsSinceUserSend >= 25;
+                        const shouldNotify = busyDuration >= MIN_BUSY_MS && (hadExplicitBusyUI || contentChanged);
+
                         isBusy = false;
-                        if (elapsed >= 2500) {
-                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.antigravityNative) {
-                                window.webkit.messageHandlers.antigravityNative.postMessage({
-                                    action: 'conversationFinished',
-                                    projectName: detectProjectName(),
-                                    title: lastTitle || document.title || 'Hội thoại Antigravity'
-                                });
-                            }
+                        hadExplicitBusyUI = false;
+                        idleSince = 0;
+                        addedCharsSinceUserSend = 0;
+                        userSentAt = 0;
+
+                        if (shouldNotify && (now - lastNotifiedAt) >= NOTIFY_COOLDOWN_MS) {
+                            lastNotifiedAt = now;
+                            postFinished(lastTitle);
                         }
                     }
                 }
             }
 
-            setInterval(check, 800);
-
-            // Re-sync and awaken when app returns from multitasking
-            document.addEventListener('visibilitychange', function() {
-                if (document.visibilityState === 'visible') {
-                    window.dispatchEvent(new Event('online'));
-                    window.dispatchEvent(new Event('focus'));
-                    setTimeout(check, 400);
-                }
-            });
-            window.addEventListener('focus', function() {
-                window.dispatchEvent(new Event('online'));
-                setTimeout(check, 400);
-            });
+            setInterval(check, 600);
         })();
         """
 
-        let watcherUserScript = WKUserScript(source: watcherScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        let watcherUserScript = WKUserScript(source: watcherScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         config.userContentController.addUserScript(watcherUserScript)
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -1008,6 +1275,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         renderDockTabs()
         updateWebViewInsets()
 
+        suppressNotifications(for: 3.5)
         dispatchWakeupEventsToActiveWebView()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
@@ -1119,6 +1387,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         }
         if let activeWv = webViews[activeWorkspaceId] {
             if activeWv.canGoBack {
+                suppressNotifications(for: 4.5, resetWebViewWatcher: true)
                 activeWv.goBack()
             } else {
                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
@@ -1146,45 +1415,72 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         present(sheet, animated: true)
     }
 
+    private func suppressNotifications(for seconds: TimeInterval, resetWebViewWatcher: Bool = false) {
+        let target = Date().addingTimeInterval(seconds)
+        if target > suppressNotificationUntil {
+            suppressNotificationUntil = target
+        }
+        if resetWebViewWatcher, let activeWv = webViews[activeWorkspaceId] {
+            activeWv.evaluateJavaScript("window.__agResetWatcher && window.__agResetWatcher('native');", completionHandler: nil)
+        }
+    }
+
     // MARK: - Conversation Completion Notification (Displays Project Name)
-    private func triggerConversationFinishedNotification(title: String, projectName: String? = nil) {
+    private func triggerConversationFinishedNotification(title: String, projectName: String? = nil, sourceWebView: WKWebView? = nil, isTest: Bool = false) {
         let isEnabled = UserDefaults.standard.object(forKey: "ag_notifications_enabled") as? Bool ?? true
         guard isEnabled else { return }
 
-        // 1. Resolve Project Name: Always prioritize project name over conversation title
-        let currentWs = workspaces.first(where: { $0.id == activeWorkspaceId })
+        if !isTest {
+            let now = Date()
+            if now < suppressNotificationUntil {
+                print("[Notification] Suppressed during launch/reload/navigation settle window.")
+                return
+            }
+            if now.timeIntervalSince(lastNotificationFiredAt) < 8.0 {
+                print("[Notification] Skipped due to deduplication cooldown.")
+                return
+            }
+            lastNotificationFiredAt = now
+        }
+
+        // 1. Resolve Project Name: Match source WebView workspace first, then fallback to active workspace
+        let sourceWs = workspaces.first(where: { webViews[$0.id] == sourceWebView }) ?? workspaces.first(where: { $0.id == activeWorkspaceId })
         let resolvedProjectName: String = {
             if let p = projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
                 return p
             }
-            if let wsName = currentWs?.name.trimmingCharacters(in: .whitespacesAndNewlines), !wsName.isEmpty && wsName != "Dự Án Antigravity" {
+            if let wsName = sourceWs?.name.trimmingCharacters(in: .whitespacesAndNewlines), !wsName.isEmpty && wsName != "Dự Án Antigravity" {
                 return wsName
             }
-            return currentWs?.name ?? "Dự Án Antigravity"
+            return sourceWs?.name ?? "Dự Án Antigravity"
         }()
 
-        // 2. Success Haptics
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        let isAppActive = UIApplication.shared.applicationState == .active
 
-        // 3. Play subtle notification chime
-        AudioServicesPlaySystemSound(1025)
+        if isAppActive {
+            // 2. Success Haptics & subtle chime in foreground
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            AudioServicesPlaySystemSound(1025)
 
-        // 4. Show Animated In-App Banner (Prominently displaying Project Name)
-        showToastBanner(
-            title: "Dự Án: \(resolvedProjectName)",
-            message: "Đã hoàn thành phản hồi và tác vụ mới."
-        )
+            // 3. Show Animated In-App Banner (Prominently displaying Project Name)
+            showToastBanner(
+                title: "Dự Án: \(resolvedProjectName)",
+                message: "Đã hoàn thành phản hồi và tác vụ mới."
+            )
+        }
 
-        // 5. Fire Local Notification (for Background/Lockscreen/Banner - Project Name as Title)
-        let content = UNMutableNotificationContent()
-        content.title = "Dự Án: \(resolvedProjectName)"
-        content.subtitle = "Đã Hoàn Thành Phản Hồi"
-        content.body = "Dự án \"\(resolvedProjectName)\" đã có kết quả mới. Chạm để xem chi tiết."
-        content.sound = .default
-        content.badge = 1
+        // 4. Fire Local System Notification when in background/inactive (or during explicit Settings test)
+        if !isAppActive || isTest {
+            let content = UNMutableNotificationContent()
+            content.title = "Dự Án: \(resolvedProjectName)"
+            content.subtitle = "Đã Hoàn Thành Phản Hồi"
+            content.body = "Dự án \"\(resolvedProjectName)\" đã có kết quả mới. Chạm để xem chi tiết."
+            content.sound = .default
+            content.badge = isAppActive ? nil : 1
 
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+        }
     }
 
     private func showToastBanner(title: String, message: String) {
@@ -1242,6 +1538,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         let elapsed = Date().timeIntervalSince(lastBackgroundDate)
         print("[Foreground] App will enter foreground. Time away: \(Int(elapsed))s")
 
+        UIApplication.shared.applicationIconBadgeNumber = 0
+
         // End background task if running
         if bgTask != .invalid {
             UIApplication.shared.endBackgroundTask(bgTask)
@@ -1251,13 +1549,16 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         // Auto-Sync and wake up WebKit if user was away for > 6 seconds
         let isAutoSyncEnabled = UserDefaults.standard.object(forKey: "ag_autosync_enabled") as? Bool ?? true
         if isAutoSyncEnabled && elapsed >= 6.0 {
+            suppressNotifications(for: 7.0, resetWebViewWatcher: true)
             wakeUpAndAutoSyncWebViews(timeAway: elapsed)
         } else {
+            suppressNotifications(for: 2.5, resetWebViewWatcher: false)
             dispatchWakeupEventsToActiveWebView()
         }
     }
 
     @objc private func handleAppDidBecomeActive() {
+        UIApplication.shared.applicationIconBadgeNumber = 0
         dispatchWakeupEventsToActiveWebView()
     }
 
@@ -1375,6 +1676,8 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
         guard let ws = workspaces.first(where: { $0.id == activeWorkspaceId }),
               let wv = webViews[activeWorkspaceId] else { return }
 
+        suppressNotifications(for: 5.5, resetWebViewWatcher: true)
+
         let cleanUrl = ws.url.trimmingCharacters(in: .whitespacesAndNewlines)
         if let targetUrl = URL(string: cleanUrl) ?? URL(string: cleanUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") {
             let targetStr = targetUrl.absoluteString
@@ -1402,6 +1705,7 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
 
     @objc private func handleReloadActiveTab() {
         if let active = webViews[activeWorkspaceId] {
+            suppressNotifications(for: 6.0, resetWebViewWatcher: true)
             active.reload()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
@@ -1582,8 +1886,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
                 } else if action == "conversationFinished" {
                     let title = body["title"] as? String ?? ""
                     let projectName = body["projectName"] as? String
+                    let isTest = body["isTest"] as? Bool ?? false
+                    let sourceWv = message.webView
                     DispatchQueue.main.async {
-                        self.triggerConversationFinishedNotification(title: title, projectName: projectName)
+                        self.triggerConversationFinishedNotification(title: title, projectName: projectName, sourceWebView: sourceWv, isTest: isTest)
                     }
                 } else if action == "openSettings" {
                     DispatchQueue.main.async {
@@ -1806,6 +2112,10 @@ class MainViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Prevent false notifications caused by initial page-load spinners
+        suppressNotifications(for: 4.5, resetWebViewWatcher: false)
+        webView.evaluateJavaScript("window.__agResetWatcher && window.__agResetWatcher('didFinish');", completionHandler: nil)
+
         // Detect if webView accidentally displayed raw zip/IPA binary content (starting with "PK")
         webView.evaluateJavaScript("document.body ? document.body.innerText.substring(0, 10) : ''") { [weak self, weak webView] result, _ in
             guard let self = self, let wv = webView else { return }
@@ -2960,7 +3270,7 @@ extension MainViewController: ModernSettingsMenuDelegate {
     func menuDidTriggerTestNotification() {
         let currentWs = workspaces.first(where: { $0.id == activeWorkspaceId })
         let wsName = currentWs?.name ?? "antigravity-app"
-        triggerConversationFinishedNotification(title: "Thử nghiệm kết quả", projectName: wsName)
+        triggerConversationFinishedNotification(title: "Thử nghiệm kết quả", projectName: wsName, isTest: true)
     }
     func menuDidRequestGoogleLogin() {
         navigateToGoogleLogin()
@@ -3040,7 +3350,7 @@ class ModernSettingsMenuViewController: UIViewController {
         titleStack.addArrangedSubview(titleLabel)
 
         let subtitleLabel = UILabel()
-        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 33)"
+        subtitleLabel.text = "Antigravity Remote • v1.0.0 (Build 34)"
         subtitleLabel.font = .systemFont(ofSize: 12, weight: .medium)
         subtitleLabel.textColor = .secondaryLabel
         titleStack.addArrangedSubview(subtitleLabel)

@@ -150,6 +150,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           action: 'conversationFinished',
           projectName: 'antigravity-app',
           title: 'Thử nghiệm kết quả',
+          isTest: true,
         });
       } catch (e) {}
     } else {

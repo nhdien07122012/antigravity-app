@@ -4,6 +4,39 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 
 ---
 
+## [v1.0.0] - Build 34 - 2026-11-18
+- **Commit:** `PENDING_COMMIT`
+- **GitHub Actions Run:** `PENDING_RUN`
+- **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi hệ thống thông báo không ổn định (hay nhảy thông báo giả khi mở app/tải lại trang và bỏ sót hoặc không bắn thông báo khi một đoạn hội thoại thực sự hoàn thành); Nâng cấp bộ phát hiện hoàn thành hội thoại v2 đa tín hiệu kèm màng chắn chống báo giả khi khởi động, chuyển trang hoặc đồng bộ nền.
+- **Chi tiết kỹ thuật các file đã chỉnh sửa:**
+  - `ios/App/App/AppDelegate.swift`:
+    - **Chống nhảy thông báo giả khi vào app / tải lại / chuyển trang (Launch, Resume & Navigation Guard):**
+      - Bổ sung cơ chế cửa sổ ổn định phía Native (`suppressNotificationUntil` + `suppressNotifications(for:resetWebViewWatcher:)`) và phía JS (`SETTLE_INITIAL_MS = 5500ms`, `SETTLE_ROUTE_MS = 3500ms`).
+      - Tự động khóa báo giả và reset trạng thái watcher khi mở ứng dụng, quay lại từ đa nhiệm (kể cả khi Auto-Sync reload), tải lại trang, quay về Home, bấm Back, đổi tab dự án hoặc chuyển route SPA (`pushState`, `replaceState`, `popstate`).
+      - Xóa badge icon ứng dụng khi quay lại foreground (`applicationIconBadgeNumber = 0`).
+      - Đổi `forMainFrameOnly: true` để tránh script chạy trùng trong các iframe ẩn.
+    - **Bộ phát hiện hoàn thành hội thoại v2 chính xác cao (Multi-Signal Completion Engine):**
+      - Loại bỏ hoàn toàn cách quét `document.body.innerText` tìm từ khóa `thinking`/`executing` (vốn gây kẹt trạng thái `isBusy = true` vĩnh viễn khi lịch sử chat có chứa các từ này) và loại bỏ bắt chung `[role="progressbar"]` (vốn bắt nhầm loading spinner lúc tải trang).
+      - Kết hợp 4 tín hiệu chính xác:
+        1. Nút Stop/Cancel hiển thị thực tế trong giao diện chat (bao gồm cả biểu tượng vuông `<rect>` ở thanh nhập liệu đáy). Tự động hủy thông báo nếu chính người dùng chủ động bấm Stop.
+        2. Phần tử trạng thái hoạt động nhỏ gọn hiển thị trực tiếp (`role="status"`, `aria-live`, `data-state="running"`, `"X tasks running"` giới hạn độ dài `<= 65` ký tự, loại trừ text quá khứ và skeleton toàn màn hình).
+        3. Theo dõi dòng nội dung streaming thời gian thực bằng `MutationObserver` kết hợp sự kiện gửi câu hỏi (phím Enter / nút Gửi).
+        4. Cầu nối `window.Notification` chuyển tiếp trực tiếp thông báo gốc từ trang web (nếu có) sang Native iOS.
+      - Thêm ngưỡng xác nhận ổn định liên tục `IDLE_CONFIRM_MS = 2800ms` kết hợp kiểm tra cùng URL (`location.href === busyUrl`) và chống lặp `NOTIFY_COOLDOWN_MS = 8000ms` giúp không bị bắn sớm giữa các bước gọi tool của Agent.
+    - **Định danh chính xác dự án & tối ưu hiển thị Foreground/Background:**
+      - Xác định đúng dự án nguồn thông qua `message.webView` (`sourceWebView`) thay vì chỉ lấy tab đang mở.
+      - Khi đang ở trong app (`.active`): hiện biểu ngữ nổi in-app mượt mà kèm âm báo và rung haptic (không chồng 2 biểu ngữ đè lên nhau); Khi ở nền (`.background`/`.inactive`) hoặc bấm nút Thử Nghiệm (`isTest: true`): bắn thông báo hệ thống `UNUserNotificationCenter`.
+      - Cập nhật header menu cài đặt lên `v1.0.0 (Build 34)`.
+  - `src/components/SettingsModal.tsx`: Bổ sung cờ `isTest: true` cho nút thử nghiệm thông báo để luôn kích hoạt tức thì khi người dùng kiểm tra.
+  - `src/version.ts`: Nâng cấp lên `Build 34` (`v1.0.0 (Build 34)`).
+  - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 34`.
+- **Lệnh hoàn tác mẫu:**
+  ```bash
+  git revert PENDING_COMMIT --no-edit
+  ```
+
+---
+
 ## [v1.0.0] - Build 33 - 2026-11-17
 - **Commit:** `1541565`
 - **GitHub Actions Run:** `#44107500754` (success)
