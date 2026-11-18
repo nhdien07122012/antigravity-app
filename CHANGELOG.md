@@ -5,8 +5,8 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
 ---
 
 ## [v1.0.0] - Build 34 - 2026-11-18
-- **Commit:** `PENDING_COMMIT`
-- **GitHub Actions Run:** `PENDING_RUN`
+- **Commit:** `b23e70d`
+- **GitHub Actions Run:** `#44229904951` (success)
 - **Mục tiêu thay đổi tóm tắt:** Khắc phục triệt để lỗi hệ thống thông báo không ổn định (hay nhảy thông báo giả khi mở app/tải lại trang và bỏ sót hoặc không bắn thông báo khi một đoạn hội thoại thực sự hoàn thành); Nâng cấp bộ phát hiện hoàn thành hội thoại v2 đa tín hiệu kèm màng chắn chống báo giả khi khởi động, chuyển trang hoặc đồng bộ nền.
 - **Chi tiết kỹ thuật các file đã chỉnh sửa:**
   - `ios/App/App/AppDelegate.swift`:
@@ -32,7 +32,7 @@ Tất cả các thay đổi đáng chú ý của dự án Antigravity Mobile s�
   - `ios/App/App.xcodeproj/project.pbxproj`: Đồng bộ `CURRENT_PROJECT_VERSION = 34`.
 - **Lệnh hoàn tác mẫu:**
   ```bash
-  git revert PENDING_COMMIT --no-edit
+  git revert b23e70d --no-edit
   ```
 
 ---
